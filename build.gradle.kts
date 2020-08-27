@@ -2,8 +2,6 @@ val lwjglVersion = "3.2.4-SNAPSHOT"
 val jomlVersion = "1.9.25"
 val lwjglNatives = "natives-linux"
 
-
-
 plugins {
     java
 }
