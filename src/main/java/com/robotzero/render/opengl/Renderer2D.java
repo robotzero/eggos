@@ -1,6 +1,7 @@
 
 package com.robotzero.render.opengl;
 
+import com.robotzero.HelloWorld;
 import com.robotzero.shader.Color;
 import com.robotzero.shader.Shader;
 import com.robotzero.shader.ShaderProgram;
@@ -321,7 +322,7 @@ public class Renderer2D {
 
         /* Set projection matrix to an orthographic projection */
         int uniProjection = program.getUniformLocation("projection");
-        program.setUniform(uniProjection, new Matrix4f().ortho(0f, 300, 0f, 300, -1f, 1f));
+        program.setUniform(uniProjection, new Matrix4f().ortho(0f, HelloWorld.WIDTH, 0f, HelloWorld.HEIGHT, -1f, 1f));
     }
 
     /**
