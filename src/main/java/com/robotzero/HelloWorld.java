@@ -12,6 +12,7 @@ import org.lwjgl.glfw.GLFWFramebufferSizeCallback;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.glfw.GLFWWindowSizeCallback;
 import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.IntBuffer;
@@ -79,9 +80,10 @@ public class HelloWorld {
   private double lastFps;
   private int fps;
   private boolean[] keyDown = new boolean[GLFW.GLFW_KEY_LAST];
+  private static String TITLE = "Eggos";
   private GLFWErrorCallback glwErrorCallback;
 
-  public void run() {
+  public void run() throws Exception {
     System.out.println("Hello LWJGL " + Version.getVersion() + "!");
 
     init();
@@ -125,7 +127,7 @@ public class HelloWorld {
     });
 
     // Create the window
-    window = glfwCreateWindow(WIDTH, HEIGHT, "Hello World!", NULL, NULL);
+    window = glfwCreateWindow(WIDTH, HEIGHT, String.format("%s", TITLE), NULL, NULL);
 
     if ( window == NULL ) {
       throw new RuntimeException("Failed to create the GLFW window");
@@ -198,7 +200,7 @@ public class HelloWorld {
     fps = 0;
   }
 
-  private void loop() {
+  private void loop() throws Exception {
     float delta;
     float accumulator = 0f;
     float interval = 1f / TARGET_UPS;
@@ -209,6 +211,7 @@ public class HelloWorld {
     // creates the GLCapabilities instance and makes the OpenGL
     // bindings available for use.
     GL.createCapabilities();
+    GLUtil.setupDebugMessageCallback();
     timer.init();
     renderer2D.init();
 
@@ -228,7 +231,6 @@ public class HelloWorld {
 
       if ( timer.getLastLoopTime() - lastFps > 1 ) {
         lastFps = timer.getLastLoopTime();
-        glfwSetWindowTitle(window, String.format("BLAH %d", fps));
         fps = 0;
       }
 
@@ -242,7 +244,7 @@ public class HelloWorld {
       renderer2D.drawTextureRegion((int) (WIDTH / 2), (int) (HEIGHT / 2), (int) (WIDTH / 2) + 10, (int) (HEIGHT / 2) + 10, 0, 0, 1, 1, new Color(1f, 1f, 1f));
       renderer2D.end();
       assetService.unbind(currentTexture);
-
+      renderer2D.drawDebugText("FPS: " + timer.getFPS() + " | UPS: " + timer.getUPS(), 5, HEIGHT - 20);
       glfwSwapBuffers(window); // swap the color buffers
       timer.updateFPS();
       /* Update timer */
@@ -283,6 +285,10 @@ public class HelloWorld {
   }
 
   public static void main(String[] args) {
-    new HelloWorld().run();
+    try {
+      new HelloWorld().run();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
   }
 }

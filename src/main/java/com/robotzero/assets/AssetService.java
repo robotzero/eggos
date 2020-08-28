@@ -50,6 +50,13 @@ public class AssetService {
                     asset1.loadAsset(resourcesPath + "/" + asset.getFileName().toString());
                     gameAssets.put(asset1.getFileName(), asset1);
                 });
+//                try {
+//                    FontTexture fontTexture = new FontTexture(new Font("Arial", Font.PLAIN, 20), Charset.defaultCharset().name());
+//                    fontTexture.loadAsset();
+//                    gameAssets.put(fontTexture.getFileName(), fontTexture);
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
             }, executorService).whenComplete((void_, throwable) -> {
                 glfwSwapBuffers(sharedWindow);
                Optional.ofNullable(throwable).ifPresent(t -> {
@@ -65,12 +72,12 @@ public class AssetService {
     }
 
     public void cleanUp() {
-        gameAssets.entrySet().forEach(assetEntry -> {
-            Optional.ofNullable(assetEntry.getValue().getTexture()).ifPresent(texture -> {
+        gameAssets.forEach((key, value) -> {
+            Optional.ofNullable(value.getTexture()).ifPresent(texture -> {
                 texture.unbind();
                 texture.delete();
             });
-            Optional.ofNullable(assetEntry.getValue().getData()).ifPresent(ByteBuffer::clear);
+            Optional.ofNullable(value.getData()).ifPresent(ByteBuffer::clear);
         });
         gameAssets.clear();
         executorService.shutdown();
@@ -86,9 +93,15 @@ public class AssetService {
     }
 
     public Texture bind(String assetName) {
-        Texture texture = gameAssets.get(assetName).getTexture();
-        texture.bind();
-        return texture;
+        return Optional.ofNullable(gameAssets.get(assetName)).map(asset -> {
+            Texture texture = asset.getTexture();
+            texture.bind();
+            return texture;
+        }).orElseGet(() -> {
+            Texture texture = Texture.createTexture(1, 1, ByteBuffer.allocateDirect(10));
+            texture.bind();
+            return texture;
+        });
     }
 
     public void unbind(Texture currentTexture) {

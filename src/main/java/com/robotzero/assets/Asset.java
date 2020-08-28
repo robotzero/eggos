@@ -12,10 +12,10 @@ import static org.lwjgl.stb.STBImage.stbi_load;
 import static org.lwjgl.stb.STBImage.stbi_set_flip_vertically_on_load;
 
 public class Asset {
-    private int width, height;
-    private ByteBuffer assetData;
-    private String fileName;
-    private Texture texture;
+    protected int width, height;
+    protected ByteBuffer assetData;
+    protected String fileName;
+    protected Texture texture;
 
     private void createTexture() {
         this.texture = Texture.createTexture(width, height, assetData);

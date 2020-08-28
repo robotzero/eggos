@@ -23,7 +23,9 @@ import static org.lwjgl.opengl.GL11.glTexImage2D;
 import static org.lwjgl.opengl.GL11.glTexParameteri;
 import static org.lwjgl.opengl.GL13.GL_CLAMP_TO_BORDER;
 import static org.lwjgl.stb.STBImage.stbi_failure_reason;
+import static org.lwjgl.stb.STBImage.stbi_image_free;
 import static org.lwjgl.stb.STBImage.stbi_load;
+import static org.lwjgl.stb.STBImage.stbi_load_from_memory;
 import static org.lwjgl.stb.STBImage.stbi_set_flip_vertically_on_load;
 
 public class Texture {
@@ -168,6 +170,57 @@ public class Texture {
         texture.uploadData(GL_RGBA8, width, height, GL_RGBA, data);
 
         texture.unbind();
+        return texture;
+    }
+
+    public Texture(ByteBuffer imageBuffer) throws Exception {
+        ByteBuffer buf;
+        // Load Texture file
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer w = stack.mallocInt(1);
+            IntBuffer h = stack.mallocInt(1);
+            IntBuffer channels = stack.mallocInt(1);
+
+            buf = stbi_load_from_memory(imageBuffer, w, h, channels, 4);
+            if (buf == null) {
+                throw new Exception("Image file not loaded: " + stbi_failure_reason());
+            }
+
+            width = w.get();
+            height = h.get();
+        }
+
+        this.id = createTexture(10, 10, buf).id;
+
+        stbi_image_free(buf);
+    }
+
+    public static Texture createTextureFont(int width, int height, ByteBuffer buf) throws Exception {
+        Texture texture = new Texture();
+        texture.setWidth(width);
+        texture.setHeight(height);
+        texture.bind();
+        // Create a new OpenGL texture
+//        int textureId = glGenTextures();
+        // Bind the texture
+//        glBindTexture(GL_TEXTURE_2D, textureId);
+
+        // Tell OpenGL how to unpack the RGBA bytes. Each component is 1 byte size
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+        texture.setParameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        texture.setParameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        // Upload the texture data
+        texture.uploadData(GL_RGBA, texture.getWidth(), texture.getHeight(), GL_RGBA, buf);
+
+//        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture.getWidth(), texture.getHeight(), 0,
+//            GL_RGBA, GL_UNSIGNED_BYTE, buf);
+        // Generate Mip Map
+//        glGenerateMipmap(GL_TEXTURE_2D);
+
+        texture.unbind();
+        stbi_image_free(buf);
         return texture;
     }
 
