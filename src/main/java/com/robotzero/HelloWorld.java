@@ -1,6 +1,9 @@
 package com.robotzero;
 
-
+import com.robotzero.assets.AssetService;
+import com.robotzero.render.opengl.Renderer2D;
+import com.robotzero.shader.Color;
+import com.robotzero.shader.Texture;
 import org.lwjgl.Version;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWVidMode;
@@ -8,6 +11,8 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.IntBuffer;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.lwjgl.glfw.Callbacks.glfwFreeCallbacks;
 import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
@@ -35,17 +40,16 @@ import static org.lwjgl.glfw.GLFW.glfwSwapInterval;
 import static org.lwjgl.glfw.GLFW.glfwTerminate;
 import static org.lwjgl.glfw.GLFW.glfwWindowHint;
 import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
-import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.glClear;
-import static org.lwjgl.opengl.GL11.glClearColor;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
 public class HelloWorld {
 
   // The window handle
-  private long window;
+  public static long window;
+  private Renderer2D renderer2D;
+  private AssetService assetService;
+  private ExecutorService executorService;
 
   public void run() {
     System.out.println("Hello LWJGL " + Version.getVersion() + "!");
@@ -53,10 +57,12 @@ public class HelloWorld {
     init();
     loop();
 
+    assetService.cleanUp();
     // Free the window callbacks and destroy the window
     glfwFreeCallbacks(window);
     glfwDestroyWindow(window);
-
+    glfwFreeCallbacks(assetService.getSharedWindow());
+    glfwDestroyWindow(assetService.getSharedWindow());
     // Terminate GLFW and free the error callback
     glfwTerminate();
     glfwSetErrorCallback(null).free();
@@ -113,6 +119,12 @@ public class HelloWorld {
 
     // Make the window visible
     glfwShowWindow(window);
+
+    /* Custom starts here */
+    executorService = Executors.newCachedThreadPool();
+    renderer2D = new Renderer2D();
+    assetService = new AssetService(executorService);
+    assetService.LoadAssets("assets");
   }
 
   private void loop() {
@@ -122,14 +134,21 @@ public class HelloWorld {
     // creates the GLCapabilities instance and makes the OpenGL
     // bindings available for use.
     GL.createCapabilities();
+    renderer2D.init();
 
     // Set the clear color
-    glClearColor(1.0f, 0.0f, 0.0f, 0.0f);
+    // glClearColor(1.0f, 0.0f, 0.0f, 0.0f);
+    renderer2D.clearColor();
 
     // Run the rendering loop until the user has attempted to close
     // the window or has pressed the ESCAPE key.
     while ( !glfwWindowShouldClose(window) ) {
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the framebuffer
+      renderer2D.clear();
+      Texture currentTexture = assetService.bind("fred_01.png");
+      renderer2D.begin();
+      renderer2D.drawTextureRegion(0, 0, currentTexture.getWidth(), currentTexture.getHeight(), 0, 0, 1, 1, new Color(1f, 1f, 1f));
+      renderer2D.end();
+      assetService.unbind(currentTexture);
 
       glfwSwapBuffers(window); // swap the color buffers
 

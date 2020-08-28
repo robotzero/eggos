@@ -1,6 +1,7 @@
 val lwjglVersion = "3.2.4-SNAPSHOT"
 val jomlVersion = "1.9.25"
 val lwjglNatives = "natives-linux"
+val commonsVersion = "2.4"
 
 plugins {
     java
@@ -15,7 +16,6 @@ repositories {
 
 dependencies {
 	implementation(platform("org.lwjgl:lwjgl-bom:$lwjglVersion"))
-
 	implementation("org.lwjgl", "lwjgl")
 	implementation("org.lwjgl", "lwjgl-assimp")
 	implementation("org.lwjgl", "lwjgl-bgfx")
@@ -93,4 +93,5 @@ dependencies {
 	runtimeOnly("org.lwjgl", "lwjgl-yoga", classifier = lwjglNatives)
 	runtimeOnly("org.lwjgl", "lwjgl-zstd", classifier = lwjglNatives)
 	implementation("org.joml", "joml", jomlVersion)
+	implementation("commons-io", "commons-io", commonsVersion)
 }
