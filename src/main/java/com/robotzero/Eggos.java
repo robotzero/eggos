@@ -5,6 +5,8 @@ import com.robotzero.render.opengl.Renderer2D;
 import com.robotzero.shader.Color;
 import com.robotzero.shader.Texture;
 import com.robotzero.utils.Timer;
+import org.joml.Vector2f;
+import org.joml.Vector2i;
 import org.lwjgl.Version;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWErrorCallback;
@@ -16,6 +18,7 @@ import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.IntBuffer;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -36,6 +39,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
 import static org.lwjgl.glfw.GLFW.GLFW_REPEAT;
 import static org.lwjgl.glfw.GLFW.GLFW_RESIZABLE;
+import static org.lwjgl.glfw.GLFW.GLFW_SAMPLES;
 import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
 import static org.lwjgl.glfw.GLFW.GLFW_VISIBLE;
 import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
@@ -53,17 +57,23 @@ import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowPos;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowShouldClose;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowSizeCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetWindowTitle;
 import static org.lwjgl.glfw.GLFW.glfwShowWindow;
 import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 import static org.lwjgl.glfw.GLFW.glfwSwapInterval;
 import static org.lwjgl.glfw.GLFW.glfwTerminate;
 import static org.lwjgl.glfw.GLFW.glfwWindowHint;
 import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
+import static org.lwjgl.opengl.GL11.GL_BLEND;
+import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
+import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
+import static org.lwjgl.opengl.GL11.GL_SRC_ALPHA;
+import static org.lwjgl.opengl.GL11.glBlendFunc;
+import static org.lwjgl.opengl.GL11.glEnable;
+import static org.lwjgl.opengl.GL11.glViewport;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
-public class HelloWorld {
+public class Eggos {
 
   // The window handle
   public static long window;
@@ -71,6 +81,8 @@ public class HelloWorld {
   public static int HEIGHT = 360;
   public static final int TARGET_UPS = 60;
   public static final int TARGET_FPS = 60;
+  public static Vector2f eggddP = new Vector2f(0.0f, 0.0f);
+  public static Vector2i eggP = new Vector2i((int) (WIDTH / 2), (int) HEIGHT / 2);
   private Renderer2D renderer2D;
   private AssetService assetService;
   private ExecutorService executorService;
@@ -150,6 +162,9 @@ public class HelloWorld {
         if (width > 0 && height > 0 && (WIDTH != width || HEIGHT != height)) {
           WIDTH = width;
           HEIGHT = height;
+          glViewport(0, 0, WIDTH, HEIGHT);
+          renderer2D.dispose();
+          renderer2D.init();
         }
       }
     });
@@ -159,6 +174,9 @@ public class HelloWorld {
         if (width > 0 && height > 0 && (WIDTH != width || HEIGHT != height)) {
           WIDTH = width;
           HEIGHT = height;
+          glViewport(0, 0, WIDTH, HEIGHT);
+          renderer2D.dispose();
+          renderer2D.init();
         }
       }
     });
@@ -212,6 +230,12 @@ public class HelloWorld {
     // bindings available for use.
     GL.createCapabilities();
     GLUtil.setupDebugMessageCallback();
+    glViewport(0, 0, WIDTH, HEIGHT);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glfwWindowHint(GLFW_SAMPLES, 4);
+
     timer.init();
     renderer2D.init();
 
@@ -225,7 +249,8 @@ public class HelloWorld {
       accumulator += delta;
 
       input();
-      //update(1f / TARGET_UPS);
+      update(timer.getDelta(), 1f / TARGET_UPS);
+
       timer.updateUPS();
       accumulator -= interval;
 
@@ -235,16 +260,23 @@ public class HelloWorld {
       }
 
       fps++;
-      renderer2D.clear();
-      Texture currentTexture = assetService.bind("fred_01.png");
-      renderer2D.begin();
-      renderer2D.drawTextureRegion(0, 0, 30, 30, 0, 0, 1, 1, new Color(1f, 1f, 1f));
-      renderer2D.end();
-      renderer2D.begin();
-      renderer2D.drawTextureRegion((int) (WIDTH / 2), (int) (HEIGHT / 2), (int) (WIDTH / 2) + 10, (int) (HEIGHT / 2) + 10, 0, 0, 1, 1, new Color(1f, 1f, 1f));
-      renderer2D.end();
-      assetService.unbind(currentTexture);
-      renderer2D.drawDebugText("FPS: " + timer.getFPS() + " | UPS: " + timer.getUPS(), 5, HEIGHT - 20);
+      Optional<Texture> currentTexture = assetService.bind("fred_01.png");
+      currentTexture.ifPresent(texture -> {
+        renderer2D.clear();
+        Vector2f Size = new Vector2f(texture.getHeight() * ((float) texture.getWidth() / (float) texture.getHeight()), texture.getHeight());
+        Vector2f Scale = new Vector2f(4.0f, 4.0f);
+        Vector2f ScaledSize = Size.mul(Scale);
+        renderer2D.begin();
+        renderer2D.drawTextureRegion(0, 0, ScaledSize.x, ScaledSize.y, 0, 0, 1, 1, new Color(1f, 1f, 1f));
+        renderer2D.end();
+        renderer2D.begin();
+        renderer2D.drawTextureRegion(eggP.x, eggP.y, eggP.x + 10, eggP.y + 10, 0, 0, 1, 1, new Color(1f, 1f, 1f));
+        renderer2D.end();
+        assetService.unbind(texture);
+      });
+      assetService.getDebugFont().ifPresent(font -> {
+        font.drawText(renderer2D, "FPS: " + timer.getFPS() + " | UPS: " + timer.getUPS(), 5, HEIGHT - 20);
+      });
       glfwSwapBuffers(window); // swap the color buffers
       timer.updateFPS();
       /* Update timer */
@@ -271,7 +303,7 @@ public class HelloWorld {
       try {
         Thread.sleep(1);
       } catch (InterruptedException ex) {
-        Logger.getLogger(HelloWorld.class.getName()).log(Level.SEVERE, null, ex);
+        Logger.getLogger(Eggos.class.getName()).log(Level.SEVERE, null, ex);
       }
 
       now = timer.getTime();
@@ -284,9 +316,18 @@ public class HelloWorld {
     }
   }
 
+  private void update(float dt, float fps) {
+    if (eggddP.x == 40) {
+      eggP.add(new Vector2i(10, 10));
+      eggddP.set(0.0f, 0.0f);
+    }
+    eggddP.add(new Vector2f(1.0f, 1.0f));
+    // Begin simulation
+  }
+
   public static void main(String[] args) {
     try {
-      new HelloWorld().run();
+      new Eggos().run();
     } catch (Exception e) {
       e.printStackTrace();
     }

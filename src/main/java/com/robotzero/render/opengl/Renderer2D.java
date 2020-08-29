@@ -1,7 +1,7 @@
 
 package com.robotzero.render.opengl;
 
-import com.robotzero.HelloWorld;
+import com.robotzero.Eggos;
 import com.robotzero.render.opengl.text.Font;
 import com.robotzero.shader.Color;
 import com.robotzero.shader.Shader;
@@ -9,34 +9,20 @@ import com.robotzero.shader.ShaderProgram;
 import com.robotzero.shader.Texture;
 import com.robotzero.shader.VertexArrayObject;
 import com.robotzero.shader.VertexBufferObject;
-import org.apache.commons.io.IOUtils;
 import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
-import java.awt.*;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-import static org.lwjgl.opengl.GL11.GL_BLEND;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
-import static org.lwjgl.opengl.GL11.GL_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
-import static org.lwjgl.opengl.GL11.glBlendFunc;
 import static org.lwjgl.opengl.GL11.glClear;
 import static org.lwjgl.opengl.GL11.glClearColor;
 import static org.lwjgl.opengl.GL11.glDrawArrays;
-import static org.lwjgl.opengl.GL11.glEnable;
 import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL15.GL_DYNAMIC_DRAW;
 import static org.lwjgl.opengl.GL20.GL_FRAGMENT_SHADER;
@@ -60,21 +46,6 @@ public class Renderer2D {
     public void init() {
         /* Setup shader programs */
         setupShaderProgram();
-        /* Enable blending */
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-        /* Create fonts */
-
-            try (InputStream inputStream = Renderer2D.class.getClassLoader().getResourceAsStream("Inconsolata.ttf")) {
-//                return IOUtils.toString(Optional.ofNullable(inputStream).orElseThrow(), StandardCharsets.UTF_8);
-                font = new Font(inputStream, 16);
-//            font = new Font(new FileInputStream("resources/Inconsolata.ttf"), 16);
-        } catch (FontFormatException | IOException ex) {
-            Logger.getLogger(Renderer2D.class.getName()).log(Level.CONFIG, null, ex);
-            font = new Font();
-        }
-        debugFont = new Font(12, false);
     }
 
     /**
@@ -444,7 +415,7 @@ public class Renderer2D {
 
         /* Set projection matrix to an orthographic projection */
         int uniProjection = program.getUniformLocation("projection");
-        program.setUniform(uniProjection, new Matrix4f().ortho(0f, HelloWorld.WIDTH, 0f, HelloWorld.HEIGHT, -1f, 1f));
+        program.setUniform(uniProjection, new Matrix4f().ortho(0f, Eggos.WIDTH, 0f, Eggos.HEIGHT, -1f, 1f));
     }
 
     /**

@@ -13,6 +13,7 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.robotzero.assets.Asset;
 import com.robotzero.render.opengl.Renderer2D;
 import com.robotzero.shader.Color;
 import com.robotzero.shader.Texture;
@@ -29,7 +30,7 @@ import static java.awt.Font.TRUETYPE_FONT;
  *
  * @author Heiko Brumme
  */
-public class Font {
+public class Font extends Asset {
 
   /**
    * Contains the glyphs for each char.
@@ -132,10 +133,21 @@ public class Font {
   }
 
   /**
+   * Public proxy call to private method to support Alias lass
+   *
+   * @param font      The AWT font
+   * @param antiAlias Whether the font should be antialiased or not
+   * @return Font texture
+   */
+  public Texture loadAsset(java.awt.Font font, boolean antiAlias) {
+    return createFontTexture(font, antiAlias);
+  }
+
+  /**
    * Creates a font texture from specified AWT font.
    *
    * @param font      The AWT font
-   * @param antiAlias Wheter the font should be antialiased or not
+   * @param antiAlias Whether the font should be antialiased or not
    *
    * @return Font texture
    */
@@ -390,5 +402,12 @@ public class Font {
    */
   public void dispose() {
     texture.delete();
+  }
+
+  /**
+   * Disposed the font
+   */
+  public void delete() {
+    dispose();
   }
 }

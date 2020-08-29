@@ -1,10 +1,14 @@
 package com.robotzero.assets;
 
-import com.robotzero.HelloWorld;
+import com.robotzero.Eggos;
+import com.robotzero.render.opengl.Renderer2D;
+import com.robotzero.render.opengl.text.Font;
 import com.robotzero.shader.Texture;
 import org.lwjgl.opengl.GL;
 
+import java.awt.*;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -15,6 +19,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
@@ -50,13 +56,17 @@ public class AssetService {
                     asset1.loadAsset(resourcesPath + "/" + asset.getFileName().toString());
                     gameAssets.put(asset1.getFileName(), asset1);
                 });
-//                try {
-//                    FontTexture fontTexture = new FontTexture(new Font("Arial", Font.PLAIN, 20), Charset.defaultCharset().name());
-//                    fontTexture.loadAsset();
-//                    gameAssets.put(fontTexture.getFileName(), fontTexture);
-//                } catch (Exception e) {
-//                    e.printStackTrace();
-//                }
+
+                try (InputStream inputStream = AssetService.class.getClassLoader().getResourceAsStream("Inconsolata.ttf")) {
+                    Asset font = new Font(inputStream, 16);
+                    gameAssets.put("font", font);
+                } catch (FontFormatException | IOException ex) {
+                    Logger.getLogger(Renderer2D.class.getName()).log(Level.CONFIG, null, ex);
+                    Asset font = new Font();
+                    gameAssets.put("font", font);
+                }
+                Asset debugFont = new Font(12, false);
+                gameAssets.put("debugfont", debugFont);
             }, executorService).whenComplete((void_, throwable) -> {
                 glfwSwapBuffers(sharedWindow);
                Optional.ofNullable(throwable).ifPresent(t -> {
@@ -64,7 +74,7 @@ public class AssetService {
                    throw new RuntimeException("Failed to load assets");
                });
             });
-            glfwMakeContextCurrent(HelloWorld.window);
+            glfwMakeContextCurrent(Eggos.window);
         } catch (IOException | NullPointerException | URISyntaxException e) {
             e.printStackTrace();
             throw new RuntimeException("Failed to load assets");
@@ -89,18 +99,20 @@ public class AssetService {
 
     public long createOpenGLContextForWorkerThread() {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-        return glfwCreateWindow(1, 1, "", NULL, HelloWorld.window);
+        return glfwCreateWindow(1, 1, "", NULL, Eggos.window);
     }
 
-    public Texture bind(String assetName) {
+    public Optional<Texture> bind(String assetName) {
         return Optional.ofNullable(gameAssets.get(assetName)).map(asset -> {
             Texture texture = asset.getTexture();
             texture.bind();
             return texture;
-        }).orElseGet(() -> {
-            Texture texture = Texture.createTexture(1, 1, ByteBuffer.allocateDirect(10));
-            texture.bind();
-            return texture;
+        });
+    }
+
+    public Optional<Font> getDebugFont() {
+        return Optional.ofNullable(gameAssets.get("debugfont")).map(asset -> {
+            return (Font) asset;
         });
     }
 
