@@ -5,9 +5,8 @@ val commonsVersion = "2.4"
 
 plugins {
     java
+	application
 }
-
-apply(plugin = "java")
 
 repositories {
 	mavenCentral()
@@ -94,4 +93,10 @@ dependencies {
 	runtimeOnly("org.lwjgl", "lwjgl-zstd", classifier = lwjglNatives)
 	implementation("org.joml", "joml", jomlVersion)
 	implementation("commons-io", "commons-io", commonsVersion)
+}
+
+tasks.jar {
+	manifest {
+		attributes ("Main-Class" to "com.robotzero.Eggos")
+	}
 }
