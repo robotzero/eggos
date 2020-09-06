@@ -116,30 +116,20 @@ public class AssetService {
     }
 
     public void setInitialEggPosition() {
-        Vector2f Size = new Vector2f(16, 16);
-        float texturePerHeight = Eggos.HEIGHT / (float) 16;
-        float scaleFactor = texturePerHeight / Eggos.EGGHEIGHTFACTOR;
-        Vector2f Scale = new Vector2f(scaleFactor, scaleFactor);
-        Vector2f ScaledSize = Scale.mul(Size);
-        Vector2f middle = new Vector2f(ScaledSize.x() / 2, ScaledSize.y() / 2);
-        Vector2f topLeft = new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.5f, 1.5f)).sub(middle);
-        Vector2f bottomLeft = new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.5f, 0.5f)).sub(middle);
-        Vector2f topRight = new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.5f, 1.5f)).sub(middle);
-        Vector2f bottomRight = new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.5f, 0.5f)).sub(middle);
-
         Egg egg1 = this.eggs.get(Rail.TOP_LEFT).iterator().next();
         Egg egg2 = this.eggs.get(Rail.BOTTOM_LEFT).iterator().next();
         Egg egg3 = this.eggs.get(Rail.TOP_RIGHT).iterator().next();
         Egg egg4 = this.eggs.get(Rail.BOTTOM_RIGHT).iterator().next();
 
-        egg1.setScaledSize(ScaledSize);
-        egg2.setScaledSize(ScaledSize);
-        egg3.setScaledSize(ScaledSize);
-        egg4.setScaledSize(ScaledSize);
-        egg1.setPosition(new Vector4f(topLeft.x, topLeft.y, topLeft.x + ScaledSize.x, topLeft.y + ScaledSize.y));
-        egg2.setPosition(new Vector4f(bottomLeft.x, bottomLeft.y, bottomLeft.x + ScaledSize.x, bottomLeft.y + ScaledSize.y));
-        egg3.setPosition(new Vector4f(topRight.x, topRight.y, topRight.x + ScaledSize.x, topRight.y + ScaledSize.y));
-        egg4.setPosition(new Vector4f(bottomRight.x, bottomRight.y, bottomRight.x + ScaledSize.x, bottomRight.y + ScaledSize.y));
+        Vector2f topLeft = new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.5f, 1.5f)).sub(egg1.getMiddle());
+        Vector2f bottomLeft = new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.5f, 0.5f)).sub(egg2.getMiddle());
+        Vector2f topRight = new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.5f, 1.5f)).sub(egg3.getMiddle());
+        Vector2f bottomRight = new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.5f, 0.5f)).sub(egg4.getMiddle());
+
+        egg1.setPosition(new Vector4f(topLeft.x, topLeft.y, topLeft.x + egg1.getScaledSize().x, topLeft.y + egg1.getScaledSize().y));
+        egg2.setPosition(new Vector4f(bottomLeft.x, bottomLeft.y, bottomLeft.x + egg2.getScaledSize().x, bottomLeft.y + egg2.getScaledSize().y));
+        egg3.setPosition(new Vector4f(topRight.x, topRight.y, topRight.x + egg3.getScaledSize().x, topRight.y + egg3.getScaledSize().y));
+        egg4.setPosition(new Vector4f(bottomRight.x, bottomRight.y, bottomRight.x + egg4.getScaledSize().x, bottomRight.y + egg4.getScaledSize().y));
     }
 
     public void cleanUp() {

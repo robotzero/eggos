@@ -80,7 +80,6 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 public class Eggos {
 
   private static final float FREDHEIGHTFACTOR = 2.8f;
-  public static final float EGGHEIGHTFACTOR = 24f;
   // The window handle
   public static long window;
   public static int WIDTH = 720;
@@ -90,7 +89,7 @@ public class Eggos {
   public static Vector2f eggddP = new Vector2f(0.0f, 0.0f);
   public static Vector2i eggP = new Vector2i((int) (WIDTH / 2), (int) HEIGHT / 2);
   public static Vector2i screenMiddle = new Vector2i(WIDTH / 2, HEIGHT / 2);
-  public static int eggSpeed = 1;
+  public static int eggSpeed = 50;
   private FredState fredState = FredState.RIGHT;
   private Renderer2D renderer2D;
   private AssetService assetService;
@@ -100,6 +99,7 @@ public class Eggos {
   private boolean[] keyDown = new boolean[GLFW.GLFW_KEY_LAST];
   private static String TITLE = "Eggos";
   private GLFWErrorCallback glwErrorCallback;
+  private Vector2f difference = new Vector2f(1.0f, 1.0f);
 
   public void run() throws Exception {
     System.out.println("Hello LWJGL " + Version.getVersion() + "!");
@@ -166,6 +166,7 @@ public class Eggos {
     glfwSetFramebufferSizeCallback(window, new GLFWFramebufferSizeCallback() {
       public void invoke(long window, int width, int height) {
         if (width > 0 && height > 0 && (WIDTH != width || HEIGHT != height)) {
+          difference = new Vector2f((float) (width / WIDTH), (float) (height / HEIGHT));
           WIDTH = width;
           HEIGHT = height;
           screenMiddle = new Vector2i(WIDTH / 2, HEIGHT / 2);
@@ -179,6 +180,7 @@ public class Eggos {
     glfwSetWindowSizeCallback(window, new GLFWWindowSizeCallback() {
       public void invoke(long window, int width, int height) {
         if (width > 0 && height > 0 && (WIDTH != width || HEIGHT != height)) {
+          difference = new Vector2f((float) (width / WIDTH), (float) (height / HEIGHT));
           WIDTH = width;
           HEIGHT = height;
           screenMiddle = new Vector2i(WIDTH / 2, HEIGHT / 2);
@@ -258,7 +260,7 @@ public class Eggos {
       accumulator += delta;
 
       fredState = input();
-      update(timer.getDelta(), 1f / TARGET_UPS);
+      update(timer.getDelta(), 1f / TARGET_FPS);
 
       timer.updateUPS();
       accumulator -= interval;
@@ -359,14 +361,13 @@ public class Eggos {
   }
 
   private void update(float dt, float fps) {
-//    if (eggddP.x * 100 == 4) {
-//      eggP.add(new Vector2i((int )(eggP.x + eggddP.x), (int) (eggP.y + eggddP.y)));
-
-//    }
-    eggddP.add(new Vector2f(1.0f * dt * 100000, 1.0f * dt * 100000));
     Egg egg = assetService.getEggs().get(Rail.TOP_LEFT).iterator().next();
+    eggddP.add(new Vector2f(1.0f * fps * eggSpeed + difference.x, 1.0f * fps * eggSpeed + difference.y));
     egg.setPosition(new Vector2f(egg.getPosition().x, egg.getPosition().y).add(new Vector2f(eggddP.x, eggddP.y)));
     eggddP.set(0.0f, 0.0f);
+    Egg egg1 = assetService.getEggs().get(Rail.BOTTOM_RIGHT).iterator().next();
+    egg1.setPosition(new Vector2f(egg1.getPosition().x * difference.x, egg1.getPosition().y * difference.y));
+    difference.set(0.0f, 0.0f);
     // Begin simulation
   }
 
