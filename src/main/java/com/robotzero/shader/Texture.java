@@ -1,5 +1,6 @@
 package com.robotzero.shader;
 
+import org.joml.Vector2f;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.ByteBuffer;
@@ -43,6 +44,16 @@ public class Texture {
      * Height of the texture.
      */
     private int height;
+
+    /**
+     * Scaled width per height of the texture
+     */
+    private float scaledWidth;
+
+    /**
+     * Size as a Vector
+     */
+    private Vector2f size;
 
     /** Creates a texture. */
     public Texture() {
@@ -145,6 +156,19 @@ public class Texture {
         }
     }
 
+    public void setScaledWidth() {
+        this.scaledWidth = height * ((float) width / (float) height);
+        this.size = new Vector2f(scaledWidth, height);
+    }
+
+    public float getScaledWidth() {
+        return this.scaledWidth;
+    }
+
+    public Vector2f getSize() {
+        return size;
+    }
+
     /**
      * Creates a texture with specified width, height and data.
      *
@@ -158,6 +182,7 @@ public class Texture {
         Texture texture = new Texture();
         texture.setWidth(width);
         texture.setHeight(height);
+        texture.setScaledWidth();
 
         texture.bind();
 
@@ -193,35 +218,6 @@ public class Texture {
         this.id = createTexture(10, 10, buf).id;
 
         stbi_image_free(buf);
-    }
-
-    public static Texture createTextureFont(int width, int height, ByteBuffer buf) throws Exception {
-        Texture texture = new Texture();
-        texture.setWidth(width);
-        texture.setHeight(height);
-        texture.bind();
-        // Create a new OpenGL texture
-//        int textureId = glGenTextures();
-        // Bind the texture
-//        glBindTexture(GL_TEXTURE_2D, textureId);
-
-        // Tell OpenGL how to unpack the RGBA bytes. Each component is 1 byte size
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-        texture.setParameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        texture.setParameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-        // Upload the texture data
-        texture.uploadData(GL_RGBA, texture.getWidth(), texture.getHeight(), GL_RGBA, buf);
-
-//        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture.getWidth(), texture.getHeight(), 0,
-//            GL_RGBA, GL_UNSIGNED_BYTE, buf);
-        // Generate Mip Map
-//        glGenerateMipmap(GL_TEXTURE_2D);
-
-        texture.unbind();
-        stbi_image_free(buf);
-        return texture;
     }
 
     /**

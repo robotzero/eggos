@@ -1,9 +1,12 @@
 package com.robotzero;
 
 import com.robotzero.assets.AssetService;
+import com.robotzero.entity.Egg;
+import com.robotzero.entity.Rail;
 import com.robotzero.render.opengl.Renderer2D;
 import com.robotzero.shader.Color;
 import com.robotzero.shader.Texture;
+import com.robotzero.utils.FredState;
 import com.robotzero.utils.Timer;
 import org.joml.Vector2f;
 import org.joml.Vector2i;
@@ -28,9 +31,10 @@ import static org.lwjgl.glfw.Callbacks.glfwFreeCallbacks;
 import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MAJOR;
 import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MINOR;
 import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_W;
 import static org.lwjgl.glfw.GLFW.GLFW_OPENGL_CORE_PROFILE;
 import static org.lwjgl.glfw.GLFW.GLFW_OPENGL_DEBUG_CONTEXT;
 import static org.lwjgl.glfw.GLFW.GLFW_OPENGL_FORWARD_COMPAT;
@@ -75,6 +79,8 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 
 public class Eggos {
 
+  private static final float FREDHEIGHTFACTOR = 2.8f;
+  public static final float EGGHEIGHTFACTOR = 24f;
   // The window handle
   public static long window;
   public static int WIDTH = 720;
@@ -83,14 +89,14 @@ public class Eggos {
   public static final int TARGET_FPS = 60;
   public static Vector2f eggddP = new Vector2f(0.0f, 0.0f);
   public static Vector2i eggP = new Vector2i((int) (WIDTH / 2), (int) HEIGHT / 2);
+  public static Vector2i screenMiddle = new Vector2i(WIDTH / 2, HEIGHT / 2);
+  public static int eggSpeed = 1;
+  private FredState fredState = FredState.RIGHT;
   private Renderer2D renderer2D;
   private AssetService assetService;
   private ExecutorService executorService;
-  private GLFWFramebufferSizeCallback fbCallback;
-  private GLFWWindowSizeCallback wsCallback;
   private Timer timer;
   private double lastFps;
-  private int fps;
   private boolean[] keyDown = new boolean[GLFW.GLFW_KEY_LAST];
   private static String TITLE = "Eggos";
   private GLFWErrorCallback glwErrorCallback;
@@ -157,11 +163,12 @@ public class Eggos {
       keyDown[key] = action == GLFW_PRESS || action == GLFW_REPEAT;
     });
 
-    glfwSetFramebufferSizeCallback(window, fbCallback = new GLFWFramebufferSizeCallback() {
+    glfwSetFramebufferSizeCallback(window, new GLFWFramebufferSizeCallback() {
       public void invoke(long window, int width, int height) {
         if (width > 0 && height > 0 && (WIDTH != width || HEIGHT != height)) {
           WIDTH = width;
           HEIGHT = height;
+          screenMiddle = new Vector2i(WIDTH / 2, HEIGHT / 2);
           glViewport(0, 0, WIDTH, HEIGHT);
           renderer2D.dispose();
           renderer2D.init();
@@ -169,11 +176,12 @@ public class Eggos {
       }
     });
 
-    glfwSetWindowSizeCallback(window, wsCallback = new GLFWWindowSizeCallback() {
+    glfwSetWindowSizeCallback(window, new GLFWWindowSizeCallback() {
       public void invoke(long window, int width, int height) {
         if (width > 0 && height > 0 && (WIDTH != width || HEIGHT != height)) {
           WIDTH = width;
           HEIGHT = height;
+          screenMiddle = new Vector2i(WIDTH / 2, HEIGHT / 2);
           glViewport(0, 0, WIDTH, HEIGHT);
           renderer2D.dispose();
           renderer2D.init();
@@ -214,8 +222,9 @@ public class Eggos {
     renderer2D = new Renderer2D();
     assetService = new AssetService(executorService);
     assetService.LoadAssets("assets");
+    assetService.loadEggs();
+    assetService.setInitialEggPosition();
     lastFps = timer.getTime();
-    fps = 0;
   }
 
   private void loop() throws Exception {
@@ -248,7 +257,7 @@ public class Eggos {
       delta = timer.getDelta();
       accumulator += delta;
 
-      input();
+      fredState = input();
       update(timer.getDelta(), 1f / TARGET_UPS);
 
       timer.updateUPS();
@@ -256,27 +265,54 @@ public class Eggos {
 
       if ( timer.getLastLoopTime() - lastFps > 1 ) {
         lastFps = timer.getLastLoopTime();
-        fps = 0;
       }
 
-      fps++;
+      renderer2D.clear();
       Optional<Texture> currentTexture = assetService.bind("fred_01.png");
       currentTexture.ifPresent(texture -> {
-        renderer2D.clear();
-        Vector2f Size = new Vector2f(texture.getHeight() * ((float) texture.getWidth() / (float) texture.getHeight()), texture.getHeight());
-        Vector2f Scale = new Vector2f(4.0f, 4.0f);
-        Vector2f ScaledSize = Size.mul(Scale);
+        Vector2f Size = texture.getSize();
+        float texturePerHeight = HEIGHT / (float) texture.getHeight();
+        float scaleFactor = texturePerHeight / FREDHEIGHTFACTOR;
+        Vector2f Scale = new Vector2f(scaleFactor, scaleFactor);
+        Vector2f ScaledSize = Scale.mul(Size);
+        Vector2f fredMiddle = new Vector2f(ScaledSize.x() / 2, ScaledSize.y() / 2);
+        Vector2f fredPosition = new Vector2f(screenMiddle).sub(fredMiddle);
         renderer2D.begin();
-        renderer2D.drawTextureRegion(0, 0, ScaledSize.x, ScaledSize.y, 0, 0, 1, 1, new Color(1f, 1f, 1f));
+        if (fredState == FredState.RIGHT) {
+          renderer2D.drawTextureRegion(fredPosition.x, fredPosition.y, fredPosition.x + ScaledSize.x, fredPosition.y + ScaledSize.y, 0, 0, 1, 1, new Color(1f, 1f, 1f));
+        }
+
+        if (fredState == FredState.LEFT) {
+          renderer2D.drawTextureRegion(fredPosition.x + ScaledSize.x, fredPosition.y, fredPosition.x, fredPosition.y + ScaledSize.y, 0, 0, 1, 1, new Color(1f, 1f, 1f));
+        }
         renderer2D.end();
+//        renderer2D.begin();
+//        renderer2D.drawTextureRegion(eggP.x, eggP.y, eggP.x + 10, eggP.y + 10, 0, 0, 1, 1, new Color(1f, 1f, 1f));
+//        renderer2D.end();
+        assetService.unbind(texture);
+      });
+
+      Optional<Texture> testTexture = assetService.bind("test_01.png");
+
+      testTexture.ifPresent(texture -> {
         renderer2D.begin();
-        renderer2D.drawTextureRegion(eggP.x, eggP.y, eggP.x + 10, eggP.y + 10, 0, 0, 1, 1, new Color(1f, 1f, 1f));
+        Egg egg1 = assetService.getEggs().get(Rail.TOP_LEFT).iterator().next();
+        Egg egg2 = assetService.getEggs().get(Rail.BOTTOM_LEFT).iterator().next();
+        Egg egg3 = assetService.getEggs().get(Rail.TOP_RIGHT).iterator().next();
+        Egg egg4 = assetService.getEggs().get(Rail.BOTTOM_RIGHT).iterator().next();
+        renderer2D.drawTextureRegion(egg1.getPosition().x, egg1.getPosition().y, egg1.getPosition().z, egg1.getPosition().w, 0, 0, 1, 1, new Color(1f, 1f, 1f));
+        renderer2D.drawTextureRegion(egg2.getPosition().x, egg2.getPosition().y, egg2.getPosition().z, egg2.getPosition().w, 0, 0, 1, 1, new Color(1f, 1f, 1f));
+        renderer2D.drawTextureRegion(egg3.getPosition().x, egg3.getPosition().y, egg3.getPosition().z, egg3.getPosition().w, 0, 0, 1, 1, new Color(1f, 1f, 1f));
+        renderer2D.drawTextureRegion(egg4.getPosition().x, egg4.getPosition().y, egg4.getPosition().z, egg4.getPosition().w, 0, 0, 1, 1, new Color(1f, 1f, 1f));
         renderer2D.end();
         assetService.unbind(texture);
       });
+
       assetService.getDebugFont().ifPresent(font -> {
         font.drawText(renderer2D, "FPS: " + timer.getFPS() + " | UPS: " + timer.getUPS(), 5, HEIGHT - 20);
+        Optional.ofNullable(font.getTexture()).ifPresent(Texture::unbind);
       });
+
       glfwSwapBuffers(window); // swap the color buffers
       timer.updateFPS();
       /* Update timer */
@@ -310,18 +346,27 @@ public class Eggos {
     }
   }
 
-  private void input() {
-    if (keyDown[GLFW_KEY_W]) {
-
+  private FredState input() {
+    if (keyDown[GLFW_KEY_A]) {
+      return FredState.LEFT;
     }
+
+    if (keyDown[GLFW_KEY_D]) {
+      return FredState.RIGHT;
+    }
+
+    return fredState;
   }
 
   private void update(float dt, float fps) {
-    if (eggddP.x == 40) {
-      eggP.add(new Vector2i(10, 10));
-      eggddP.set(0.0f, 0.0f);
-    }
-    eggddP.add(new Vector2f(1.0f, 1.0f));
+//    if (eggddP.x * 100 == 4) {
+//      eggP.add(new Vector2i((int )(eggP.x + eggddP.x), (int) (eggP.y + eggddP.y)));
+
+//    }
+    eggddP.add(new Vector2f(1.0f * dt * 100000, 1.0f * dt * 100000));
+    Egg egg = assetService.getEggs().get(Rail.TOP_LEFT).iterator().next();
+    egg.setPosition(new Vector2f(egg.getPosition().x, egg.getPosition().y).add(new Vector2f(eggddP.x, eggddP.y)));
+    eggddP.set(0.0f, 0.0f);
     // Begin simulation
   }
 
