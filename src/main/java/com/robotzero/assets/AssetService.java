@@ -5,10 +5,7 @@ import com.robotzero.entity.Egg;
 import com.robotzero.entity.Rail;
 import com.robotzero.render.opengl.Renderer2D;
 import com.robotzero.render.opengl.text.Font;
-import com.robotzero.shader.Color;
 import com.robotzero.shader.Texture;
-import org.joml.Vector2f;
-import org.joml.Vector4f;
 import org.lwjgl.opengl.GL;
 
 import java.awt.*;
@@ -44,6 +41,7 @@ public class AssetService {
     private long sharedWindow;
     private final ConcurrentHashMap<String, Asset> gameAssets = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Rail, ConcurrentLinkedQueue<Egg>> eggs = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Rail, ConcurrentLinkedQueue<Egg>> eggsShowing = new ConcurrentHashMap<>();
 
     public AssetService(ExecutorService executorService) {
         this.executorService = executorService;
@@ -94,42 +92,38 @@ public class AssetService {
         eggs.put(Rail.TOP_RIGHT, new ConcurrentLinkedQueue<>());
         eggs.put(Rail.BOTTOM_LEFT, new ConcurrentLinkedQueue<>());
         eggs.put(Rail.BOTTOM_RIGHT, new ConcurrentLinkedQueue<>());
-        IntStream.range(0, 10).forEach(index -> {
+        IntStream.range(0, 16).forEach(index -> {
             Asset eggAsset = gameAssets.get("egg_01.png");
-            Egg egg = new Egg(eggAsset, null);
-            if (index % 2 == 0) {
+            if (index % 4 == 0) {
+                Egg egg = new Egg(eggAsset, Rail.TOP_LEFT);
                 eggs.get(Rail.TOP_LEFT).add(egg);
                 return;
             }
 
-            if (index % 3 == 0) {
+            if (index % 4 == 1) {
+                Egg egg = new Egg(eggAsset, Rail.TOP_RIGHT);
                 eggs.get(Rail.TOP_RIGHT).add(egg);
                 return;
             }
 
-            if (index % 5 == 0) {
+            if (index % 4 == 3) {
+                Egg egg = new Egg(eggAsset, Rail.BOTTOM_RIGHT);
                 eggs.get(Rail.BOTTOM_RIGHT).add(egg);
+                return;
             }
 
+            Egg egg = new Egg(eggAsset, Rail.BOTTOM_LEFT);
             eggs.get(Rail.BOTTOM_LEFT).add(egg);
         });
-    }
+        eggsShowing.put(Rail.TOP_LEFT, new ConcurrentLinkedQueue<>());
+        eggsShowing.put(Rail.TOP_RIGHT, new ConcurrentLinkedQueue<>());
+        eggsShowing.put(Rail.BOTTOM_LEFT, new ConcurrentLinkedQueue<>());
+        eggsShowing.put(Rail.BOTTOM_RIGHT, new ConcurrentLinkedQueue<>());
 
-    public void setInitialEggPosition() {
-        Egg egg1 = this.eggs.get(Rail.TOP_LEFT).iterator().next();
-        Egg egg2 = this.eggs.get(Rail.BOTTOM_LEFT).iterator().next();
-        Egg egg3 = this.eggs.get(Rail.TOP_RIGHT).iterator().next();
-        Egg egg4 = this.eggs.get(Rail.BOTTOM_RIGHT).iterator().next();
-
-        Vector2f topLeft = new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.5f, 1.5f)).sub(egg1.getMiddle());
-        Vector2f bottomLeft = new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.5f, 0.5f)).sub(egg2.getMiddle());
-        Vector2f topRight = new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.5f, 1.5f)).sub(egg3.getMiddle());
-        Vector2f bottomRight = new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.5f, 0.5f)).sub(egg4.getMiddle());
-
-        egg1.setPosition(new Vector4f(topLeft.x, topLeft.y, topLeft.x + egg1.getScaledSize().x, topLeft.y + egg1.getScaledSize().y));
-        egg2.setPosition(new Vector4f(bottomLeft.x, bottomLeft.y, bottomLeft.x + egg2.getScaledSize().x, bottomLeft.y + egg2.getScaledSize().y));
-        egg3.setPosition(new Vector4f(topRight.x, topRight.y, topRight.x + egg3.getScaledSize().x, topRight.y + egg3.getScaledSize().y));
-        egg4.setPosition(new Vector4f(bottomRight.x, bottomRight.y, bottomRight.x + egg4.getScaledSize().x, bottomRight.y + egg4.getScaledSize().y));
+        Optional.ofNullable(eggs.get(Rail.TOP_LEFT).poll()).ifPresent(egg -> {
+            egg.setShowing(true);
+            eggsShowing.get(Rail.TOP_LEFT).offer(egg);
+        });
     }
 
     public void cleanUp() {
@@ -175,5 +169,13 @@ public class AssetService {
 
     public ConcurrentHashMap<Rail, ConcurrentLinkedQueue<Egg>> getEggs() {
         return eggs;
+    }
+
+    public ConcurrentHashMap<Rail, ConcurrentLinkedQueue<Egg>> getEggsShowing() {
+        return eggsShowing;
+    }
+
+    public Asset getFred() {
+        return gameAssets.get("fred_01.png");
     }
 }

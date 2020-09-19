@@ -2,16 +2,14 @@ package com.robotzero.entity;
 
 import com.robotzero.Eggos;
 import com.robotzero.assets.Asset;
+import com.robotzero.shader.Color;
 import com.robotzero.shader.Texture;
 import org.joml.Vector2f;
-import org.joml.Vector3f;
 import org.joml.Vector4f;
-
-import java.util.Optional;
 
 public class Egg {
   private final Asset asset;
-  private final Vector4f position;
+  private final Vector4f position = new Vector4f(0.0f, 0.0f, 0.0f, 0.0f);
   private Vector2f dP;
   private static final float EGGHEIGHTFACTOR = 24f;
   private Vector2f Size = new Vector2f(16, 16);
@@ -20,11 +18,14 @@ public class Egg {
   private Vector2f Scale = new Vector2f(scaleFactor, scaleFactor);
   private Vector2f scaledSize = Scale.mul(Size);
   private Vector2f middle = new Vector2f(scaledSize.x() / 2, scaledSize.y() / 2);
+  private boolean isShowing = false;
+  private int rotation = 0;
+  public static final Color defaultColor = new Color(1.0f, 1.0f, 1.0f);
 
-  public Egg(Asset asset, Vector4f initialPosition) {
+  public Egg(Asset asset, Rail rail) {
     this.asset = asset;
-    this.position =  Optional.ofNullable(initialPosition).orElse(new Vector4f(0f, 0f, 0f, 0f));
     this.dP = new Vector2f(0f, 0f);
+    this.setInitialPosition(rail);
   }
 
   public void setPosition(Vector2f newPosition) {
@@ -69,7 +70,50 @@ public class Egg {
     return this.scaledSize;
   }
 
-  public void screenChangedEvent() {
+  public void setRotation(int rotation) {
+    if (this.rotation == 360) {
+      this.rotation = rotation;
+    } else {
+      this.rotation = this.rotation + rotation;
+    }
+  }
 
+  public int getRotation() {
+    return this.rotation;
+  }
+
+  public boolean isShowing() {
+    return isShowing;
+  }
+
+  public void setShowing(boolean showing) {
+    isShowing = showing;
+  }
+
+  public void setInitialPosition(Rail rail) {
+    if (rail.equals(Rail.TOP_LEFT)) {
+      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.5f, 1.5f)).sub(getMiddle()));
+    }
+
+    if (rail.equals(Rail.BOTTOM_LEFT)) {
+      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.5f, 0.5f)).sub(getMiddle()));
+    }
+
+    if (rail.equals(Rail.TOP_RIGHT)) {
+      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.5f, 1.5f)).sub(getMiddle()));
+    }
+
+    if (rail.equals(Rail.BOTTOM_RIGHT)) {
+      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.5f, 0.5f)).sub(getMiddle()));
+    }
+  }
+
+  public void screenChangedEvent(Vector2f difference) {
+    this.texturePerHeight = Eggos.HEIGHT / (float) 16;
+    this.scaleFactor = texturePerHeight / EGGHEIGHTFACTOR;
+    this.Scale = new Vector2f(scaleFactor, scaleFactor);
+    this.scaledSize = this.Scale.mul(this.Size);
+    this.middle = new Vector2f(this.scaledSize.x() / 2, this.scaledSize.y() / 2);
+    setPosition(this.position.mul(new Vector4f(difference.x, difference.y, 1.0f, 1.0f)));
   }
 }

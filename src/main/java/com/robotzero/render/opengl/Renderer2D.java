@@ -437,4 +437,9 @@ public class Renderer2D {
         program.enableVertexAttribute(texAttrib);
         program.pointVertexAttribute(texAttrib, 2, 8 * Float.BYTES, 6 * Float.BYTES);
     }
+
+    public void setUniform(Matrix4f model) {
+        int uniModel = program.getUniformLocation("model");
+        program.setUniform(uniModel, model);
+    }
 }
