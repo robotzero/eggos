@@ -124,6 +124,21 @@ public class AssetService {
             egg.setShowing(true);
             eggsShowing.get(Rail.TOP_LEFT).offer(egg);
         });
+
+//        Optional.ofNullable(eggs.get(Rail.BOTTOM_LEFT).poll()).ifPresent(egg -> {
+//            egg.setShowing(true);
+//            eggsShowing.get(Rail.BOTTOM_LEFT).offer(egg);
+//        });
+//
+//        Optional.ofNullable(eggs.get(Rail.TOP_RIGHT).poll()).ifPresent(egg -> {
+//            egg.setShowing(true);
+//            eggsShowing.get(Rail.TOP_RIGHT).offer(egg);
+//        });
+//
+//        Optional.ofNullable(eggs.get(Rail.BOTTOM_RIGHT).poll()).ifPresent(egg -> {
+//            egg.setShowing(true);
+//            eggsShowing.get(Rail.BOTTOM_RIGHT).offer(egg);
+//        });
     }
 
     public void cleanUp() {

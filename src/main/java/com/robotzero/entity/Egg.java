@@ -71,7 +71,7 @@ public class Egg {
   }
 
   public void setRotation(int rotation) {
-    if (this.rotation == 360) {
+    if (this.rotation == 360 || rotation == 0) {
       this.rotation = rotation;
     } else {
       this.rotation = this.rotation + rotation;
@@ -92,19 +92,19 @@ public class Egg {
 
   public void setInitialPosition(Rail rail) {
     if (rail.equals(Rail.TOP_LEFT)) {
-      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.5f, 1.5f)).sub(getMiddle()));
+      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.05f, 1.5f)).sub(getMiddle()));
     }
 
     if (rail.equals(Rail.BOTTOM_LEFT)) {
-      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.5f, 0.5f)).sub(getMiddle()));
+      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.05f, 0.95f)).sub(getMiddle()));
     }
 
     if (rail.equals(Rail.TOP_RIGHT)) {
-      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.5f, 1.5f)).sub(getMiddle()));
+      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.95f, 1.5f)).sub(getMiddle()));
     }
 
     if (rail.equals(Rail.BOTTOM_RIGHT)) {
-      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.5f, 0.5f)).sub(getMiddle()));
+      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.95f, 0.95f)).sub(getMiddle()));
     }
   }
 

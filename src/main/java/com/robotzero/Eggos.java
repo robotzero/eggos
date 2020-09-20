@@ -22,14 +22,17 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.MemoryStack;
 
+import java.math.BigDecimal;
 import java.nio.IntBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import static org.lwjgl.glfw.Callbacks.glfwFreeCallbacks;
 import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MAJOR;
@@ -91,7 +94,7 @@ public class Eggos {
   public static final int TARGET_FPS = 60;
   public static Vector2f eggddP = new Vector2f(0.0f, 0.0f);
   public static Vector2i screenMiddle = new Vector2i(WIDTH / 2, HEIGHT / 2);
-  public static int eggSpeed = 1;
+  public static float eggSpeed = 2f;
   private FredState fredState = FredState.RIGHT;
   private Renderer2D renderer2D;
   private AssetService assetService;
@@ -105,6 +108,7 @@ public class Eggos {
   private float upsTracking = 0;
   private float railWidth = WIDTH * 0.15f;
   private float railHeight = HEIGHT * 0.15f;
+  private float propRailWidth = (float) Math.sqrt((railWidth * railWidth) + (railHeight * railHeight));
   private Map<Rail, Integer> eggTicks = new HashMap<>(Map.of(
       Rail.TOP_LEFT, 0,
       Rail.BOTTOM_LEFT, 0,
@@ -118,8 +122,16 @@ public class Eggos {
       Rail.BOTTOM_RIGHT, 0,
       Rail.TOP_RIGHT, 0
   ));
+  private final Map<Rail, Vector2f> eggsDdp = new HashMap<>(Map.of(
+      Rail.TOP_LEFT, new Vector2f(1.5f, -0.35f),
+      Rail.BOTTOM_LEFT, new Vector2f(1.5f, -0.35f),
+      Rail.BOTTOM_RIGHT, new Vector2f(-1.5f, -0.35f),
+      Rail.TOP_RIGHT, new Vector2f(-1.5f, -0.35f)
+  ));
+
+  private final int showNextEgg = 4;
+  private int allEggTicks = 0;
   private final Matrix4f identity = new Matrix4f();
-  private float propRailWidth = (float) Math.sqrt((railWidth * railWidth) + (railHeight * railHeight));
   private Fred fred;
 
   public void run() throws Exception {
@@ -327,6 +339,7 @@ public class Eggos {
                 .rotate(new AxisAngle4f((float) Math.toRadians(egg.getRotation()), 0f, 0f, -1).normalize())
                 .translate(-egg.getMiddle().x, -egg.getMiddle().y, 0f));
             renderer2D.drawTextureRegion(0, 0, egg.getScaledSize().x, egg.getScaledSize().y, 0, 0, 1, 1, Egg.defaultColor);
+            renderer2D.flush();
           }
         });
         renderer2D.end();
@@ -336,6 +349,7 @@ public class Eggos {
       renderer2D.setUniform(identity);
       assetService.getDebugFont().ifPresent(font -> {
         font.drawText(renderer2D, "FPS: " + timer.getFPS() + " | UPS: " + timer.getUPS(), 5, HEIGHT - 20);
+        font.drawText(renderer2D, "Points: " + BigDecimal.valueOf(eggsInTheBasket).toPlainString(), screenMiddle.x, HEIGHT - 20);
         Optional.ofNullable(font.getTexture()).ifPresent(Texture::unbind);
       });
 
@@ -387,44 +401,79 @@ public class Eggos {
   private void update(float dt, float fps) {
     upsTracking = upsTracking + fps;
     if (upsTracking >= eggSpeed) {
-      eggddP.add(new Vector2f(1.0f * propRailWidth * 0.25f, -(1.0f * propRailWidth * 0.25f)));
+      List<Map.Entry<Rail, Integer>> endTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() == 4)
+          .collect(Collectors.toList());
 
-      eggTicks.entrySet().stream().filter(entry -> entry.getValue() == 4).forEach(entry -> {
-        if (assetService.getEggsShowing().get(entry.getKey()).size() == 0 || assetService.getEggsShowing().get(entry.getKey()).size() < eggsOnScreen.get(entry.getKey())) {
+      List<Map.Entry<Rail, Integer>> zeroTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() == 0)
+          .collect(Collectors.toList());
+
+      List<Map.Entry<Rail, Integer>> standardTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() != 0 && entry.getValue() != 4)
+          .collect(Collectors.toList());
+
+//      if (allEggTicks != 0 && allEggTicks % showNextEgg == 0) {
+//        eggsOnScreen.put(Rail.BOTTOM_LEFT, eggsOnScreen.get(Rail.BOTTOM_LEFT) + 1);
+//      }
+
+      standardTicks.forEach(entry -> {
+        if (assetService.getEggsShowing().get(entry.getKey()).size() > 0) {
+          eggTicks.put(entry.getKey(), entry.getValue() + 1);
+          assetService.getEggsShowing().get(entry.getKey()).forEach(egg -> {
+            egg.setRotation(45);
+          });
+        }
+      });
+
+      endTicks.forEach(entry -> {
+        final var eggCollection = assetService.getEggsShowing().get(entry.getKey());
+
+        if (eggCollection.size() < eggsOnScreen.get(entry.getKey())) {
+//          Optional.ofNullable(assetService.getEggs().get(entry.getKey()).poll()).ifPresent(currentEgg -> {
+//            currentEgg.setShowing(true);
+//            currentEgg.setInitialPosition(entry.getKey());
+//            currentEgg.setRotation(0);
+//            assetService.getEggsShowing().get(entry.getKey()).offer(currentEgg);
+//            eggsOnScreen.put(entry.getKey(), 1);
+//          });
+        } else {
+          Optional.ofNullable(assetService.getEggsShowing().get(entry.getKey()).poll()).ifPresent(eggToRemove -> {
+            eggToRemove.setShowing(false);
+            eggToRemove.setRotation(0);
+            assetService.getEggs().get(entry.getKey()).offer(eggToRemove);
+            eggsOnScreen.put(entry.getKey(), entry.getValue() - 1);
+            eggsInTheBasket = eggsInTheBasket + 1;
+          });
+        }
+        eggTicks.put(entry.getKey(), 0);
+      });
+
+      zeroTicks.forEach(entry -> {
+        final var eggCollection = assetService.getEggsShowing().get(entry.getKey());
+        if (eggCollection.size() < eggsOnScreen.get(entry.getKey())) {
           Optional.ofNullable(assetService.getEggs().get(entry.getKey()).poll()).ifPresent(currentEgg -> {
             currentEgg.setShowing(true);
+            currentEgg.setInitialPosition(entry.getKey());
+            currentEgg.setRotation(0);
             assetService.getEggsShowing().get(entry.getKey()).offer(currentEgg);
             eggsOnScreen.put(entry.getKey(), 1);
           });
         } else {
-          assetService.getEggsShowing().forEach((key, value) -> Optional.ofNullable(assetService.getEggsShowing().get(key).peek()).ifPresent(egg -> {
-            Optional.ofNullable(assetService.getEggsShowing().get(key).poll()).ifPresent(eggToRemove -> {
-              eggToRemove.setShowing(false);
-              eggToRemove.setInitialPosition(key);
-              eggToRemove.setRotation(0);
-              assetService.getEggs().get(key).offer(eggToRemove);
-              eggsOnScreen.put(key, eggsOnScreen.get(key) - 1);
-            });
-          }));
+          eggCollection.forEach(egg -> {
+            egg.setRotation(45);
+          });
         }
-
-        eggTicks.put(entry.getKey(), 0);
-      });
-
-      eggTicks.entrySet().stream().filter(entry -> entry.getValue() < 4).forEach(entry -> {
         if (assetService.getEggsShowing().get(entry.getKey()).size() > 0) {
-          eggTicks.put(entry.getKey(), eggTicks.get(entry.getKey()) + 1);
+          eggTicks.put(entry.getKey(), entry.getValue() + 1);
         }
       });
 
-
-      assetService.getEggsShowing().entrySet().parallelStream().forEach(entry -> {
+      assetService.getEggsShowing().entrySet().stream().forEach(entry -> {
         for (Egg egg : entry.getValue()) {
-          egg.setPosition(new Vector2f(egg.getPosition().x * difference.x, egg.getPosition().y * difference.y).add(new Vector2f(eggddP.x, eggddP.y)));
-          egg.setRotation(45);
+          final var ddp = new Vector2f(eggddP).add(new Vector2f(1.0f * propRailWidth * 0.25f, 1.0f * propRailWidth * 0.25f)).mul(eggsDdp.get(entry.getKey()));
+          egg.setPosition(new Vector2f(egg.getPosition().x * difference.x, egg.getPosition().y * difference.y).add(ddp.x, ddp.y));
         }
       });
       upsTracking = 0;
+      allEggTicks = allEggTicks + 1;
     }
 
     difference.set(1.0f, 1.0f);
