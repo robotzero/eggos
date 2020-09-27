@@ -28,6 +28,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -94,7 +96,7 @@ public class Eggos {
   public static final int TARGET_FPS = 60;
   public static Vector2f eggddP = new Vector2f(0.0f, 0.0f);
   public static Vector2i screenMiddle = new Vector2i(WIDTH / 2, HEIGHT / 2);
-  public static float eggSpeed = 2f;
+  public static float eggSpeed = 1f;
   private FredState fredState = FredState.RIGHT;
   private Renderer2D renderer2D;
   private AssetService assetService;
@@ -129,9 +131,9 @@ public class Eggos {
       Rail.TOP_RIGHT, new Vector2f(-1.5f, -0.35f)
   ));
 
-  private final int showNextEgg = 4;
   private int allEggTicks = 0;
   private final Matrix4f identity = new Matrix4f();
+  private final Random random = new Random();
   private Fred fred;
 
   public void run() throws Exception {
@@ -301,7 +303,13 @@ public class Eggos {
       accumulator += delta;
 
       fredState = input();
-      update(timer.getDelta(), 1f / TARGET_FPS);
+      upsTracking = upsTracking + 1f / TARGET_FPS;
+
+      if (upsTracking > eggSpeed) {
+        beginSim();
+        update(1f / TARGET_FPS);
+        endSim();
+      }
 
       timer.updateUPS();
       accumulator -= interval;
@@ -398,87 +406,97 @@ public class Eggos {
     return fredState;
   }
 
-  private void update(float dt, float fps) {
-    upsTracking = upsTracking + fps;
-    if (upsTracking >= eggSpeed) {
-      List<Map.Entry<Rail, Integer>> endTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() == 4)
+  private void endSim() {
+      List<Map.Entry<Rail, Integer>> endTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() == 5)
+          .collect(Collectors.toList());
+
+      List<Egg> eggsToRemove = assetService.getEggsShowing().entrySet().stream().flatMap(entry -> entry.getValue().stream()).filter(egg -> egg.getTick() == 5)
+          .collect(Collectors.toList());
+
+      eggsToRemove.forEach(egg -> {
+        Optional.ofNullable(assetService.getEggsShowing().get(egg.getRail()).poll()).ifPresent(eggToRemove -> {
+          Rail rail = eggToRemove.getRail();
+          eggToRemove.setShowing(false);
+          eggToRemove.setRotation(0);
+          eggToRemove.setRail(null);
+          assetService.getEggs().get(rail).offer(eggToRemove);
+          eggsOnScreen.put(rail, eggsOnScreen.get(rail) - 1);
+          Rail randomRail = Rail.getRail(random.nextInt(4));
+          eggsOnScreen.put(randomRail, eggsOnScreen.get(randomRail) + 1);
+          eggsInTheBasket = eggsInTheBasket + 1;
+        });
+      });
+        endTicks.forEach(rail -> {
+          eggTicks.put(rail.getKey(), 0);
+        });
+
+    upsTracking = 0;
+    difference.set(1.0f, 1.0f);
+    eggddP.set(0.0f, 0.0f);
+  }
+
+  private void beginSim() {
+      final int allEggsShowing = assetService.getEggsShowing().values().stream().mapToInt(ConcurrentLinkedQueue::size).sum();
+
+      if (allEggTicks > 15 && allEggTicks % 6 == 0 && allEggTicks < 32) {
+        Rail railToAdd = Rail.getRail(random.nextInt(4));
+        eggsOnScreen.put(railToAdd, eggsOnScreen.get(railToAdd) + 1);
+      }
+
+      List<Map.Entry<Rail, Integer>> endTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() == 5)
           .collect(Collectors.toList());
 
       List<Map.Entry<Rail, Integer>> zeroTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() == 0)
           .collect(Collectors.toList());
 
-      List<Map.Entry<Rail, Integer>> standardTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() != 0 && entry.getValue() != 4)
+      List<Map.Entry<Rail, Integer>> standardTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() != 0 && entry.getValue() != 5)
           .collect(Collectors.toList());
 
-//      if (allEggTicks != 0 && allEggTicks % showNextEgg == 0) {
-//        eggsOnScreen.put(Rail.BOTTOM_LEFT, eggsOnScreen.get(Rail.BOTTOM_LEFT) + 1);
-//      }
+      final int allEggsOnScreen = eggsOnScreen.values().stream().mapToInt(Integer::intValue).sum();
+      if (allEggsShowing == 0 || allEggsShowing < allEggsOnScreen) {
+        eggsOnScreen.forEach((railToAdd, value) -> {
+          if (value > assetService.getEggsShowing().get(railToAdd).size()) {
+            Egg eggToAdd = assetService.getEggs().get(railToAdd).poll();
+            Optional.ofNullable(eggToAdd).ifPresent(egg -> {
+              egg.setInitialPosition(railToAdd, new Vector2f(1.0f * propRailWidth * 0.25f, 1.0f * propRailWidth * 0.25f).mul(eggsDdp.get(railToAdd)));
+              egg.setRotation(random.nextInt(360));
+              egg.setTick(0);
+              egg.setRail(railToAdd);
+              assetService.getEggsShowing().get(railToAdd).offer(egg);
+            });
+          }
+        });
+      }
 
       standardTicks.forEach(entry -> {
         if (assetService.getEggsShowing().get(entry.getKey()).size() > 0) {
           eggTicks.put(entry.getKey(), entry.getValue() + 1);
-          assetService.getEggsShowing().get(entry.getKey()).forEach(egg -> {
-            egg.setRotation(45);
-          });
         }
-      });
-
-      endTicks.forEach(entry -> {
-        final var eggCollection = assetService.getEggsShowing().get(entry.getKey());
-
-        if (eggCollection.size() < eggsOnScreen.get(entry.getKey())) {
-//          Optional.ofNullable(assetService.getEggs().get(entry.getKey()).poll()).ifPresent(currentEgg -> {
-//            currentEgg.setShowing(true);
-//            currentEgg.setInitialPosition(entry.getKey());
-//            currentEgg.setRotation(0);
-//            assetService.getEggsShowing().get(entry.getKey()).offer(currentEgg);
-//            eggsOnScreen.put(entry.getKey(), 1);
-//          });
-        } else {
-          Optional.ofNullable(assetService.getEggsShowing().get(entry.getKey()).poll()).ifPresent(eggToRemove -> {
-            eggToRemove.setShowing(false);
-            eggToRemove.setRotation(0);
-            assetService.getEggs().get(entry.getKey()).offer(eggToRemove);
-            eggsOnScreen.put(entry.getKey(), entry.getValue() - 1);
-            eggsInTheBasket = eggsInTheBasket + 1;
-          });
-        }
-        eggTicks.put(entry.getKey(), 0);
       });
 
       zeroTicks.forEach(entry -> {
-        final var eggCollection = assetService.getEggsShowing().get(entry.getKey());
-        if (eggCollection.size() < eggsOnScreen.get(entry.getKey())) {
-          Optional.ofNullable(assetService.getEggs().get(entry.getKey()).poll()).ifPresent(currentEgg -> {
-            currentEgg.setShowing(true);
-            currentEgg.setInitialPosition(entry.getKey());
-            currentEgg.setRotation(0);
-            assetService.getEggsShowing().get(entry.getKey()).offer(currentEgg);
-            eggsOnScreen.put(entry.getKey(), 1);
-          });
-        } else {
-          eggCollection.forEach(egg -> {
-            egg.setRotation(45);
-          });
-        }
         if (assetService.getEggsShowing().get(entry.getKey()).size() > 0) {
           eggTicks.put(entry.getKey(), entry.getValue() + 1);
         }
       });
 
-      assetService.getEggsShowing().entrySet().stream().forEach(entry -> {
+      endTicks.forEach(entry -> {
+        if (assetService.getEggsShowing().get(entry.getKey()).size() > 0) {
+          eggTicks.put(entry.getKey(), entry.getValue() + 1);
+        }
+    });
+  }
+
+  private void update(float fps) {
+      assetService.getEggsShowing().entrySet().forEach(entry -> {
         for (Egg egg : entry.getValue()) {
           final var ddp = new Vector2f(eggddP).add(new Vector2f(1.0f * propRailWidth * 0.25f, 1.0f * propRailWidth * 0.25f)).mul(eggsDdp.get(entry.getKey()));
           egg.setPosition(new Vector2f(egg.getPosition().x * difference.x, egg.getPosition().y * difference.y).add(ddp.x, ddp.y));
+          egg.updateTick();
+          egg.setRotation(45);
         }
       });
-      upsTracking = 0;
       allEggTicks = allEggTicks + 1;
-    }
-
-    difference.set(1.0f, 1.0f);
-    eggddP.set(0.0f, 0.0f);
-    // Begin simulation
   }
 
   private void screenChangedEvent() {

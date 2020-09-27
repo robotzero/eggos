@@ -120,10 +120,10 @@ public class AssetService {
         eggsShowing.put(Rail.BOTTOM_LEFT, new ConcurrentLinkedQueue<>());
         eggsShowing.put(Rail.BOTTOM_RIGHT, new ConcurrentLinkedQueue<>());
 
-        Optional.ofNullable(eggs.get(Rail.TOP_LEFT).poll()).ifPresent(egg -> {
-            egg.setShowing(true);
-            eggsShowing.get(Rail.TOP_LEFT).offer(egg);
-        });
+//        Optional.ofNullable(eggs.get(Rail.TOP_LEFT).poll()).ifPresent(egg -> {
+//            egg.setShowing(true);
+//            eggsShowing.get(Rail.TOP_LEFT).offer(egg);
+//        });
 
 //        Optional.ofNullable(eggs.get(Rail.BOTTOM_LEFT).poll()).ifPresent(egg -> {
 //            egg.setShowing(true);

@@ -10,6 +10,7 @@ import org.joml.Vector4f;
 public class Egg {
   private final Asset asset;
   private final Vector4f position = new Vector4f(0.0f, 0.0f, 0.0f, 0.0f);
+  private Rail rail;
   private Vector2f dP;
   private static final float EGGHEIGHTFACTOR = 24f;
   private Vector2f Size = new Vector2f(16, 16);
@@ -19,13 +20,15 @@ public class Egg {
   private Vector2f scaledSize = Scale.mul(Size);
   private Vector2f middle = new Vector2f(scaledSize.x() / 2, scaledSize.y() / 2);
   private boolean isShowing = false;
+  private int tick = 0;
   private int rotation = 0;
   public static final Color defaultColor = new Color(1.0f, 1.0f, 1.0f);
 
   public Egg(Asset asset, Rail rail) {
     this.asset = asset;
     this.dP = new Vector2f(0f, 0f);
-    this.setInitialPosition(rail);
+    this.setInitialPosition(rail, new Vector2f(0.0f, 0.0f));
+    this.rail = rail;
   }
 
   public void setPosition(Vector2f newPosition) {
@@ -90,21 +93,34 @@ public class Egg {
     isShowing = showing;
   }
 
-  public void setInitialPosition(Rail rail) {
+  public int getTick() {
+    return tick;
+  }
+
+  public void updateTick() {
+    this.tick = this.tick + 1;
+  }
+
+  public void setTick(int tick) {
+    this.tick = tick;
+  }
+
+  public void setInitialPosition(Rail rail, Vector2f offset) {
+    this.rail = rail;
     if (rail.equals(Rail.TOP_LEFT)) {
-      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.05f, 1.5f)).sub(getMiddle()));
+      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.15f, 1.5f)).sub(getMiddle()).sub(offset));
     }
 
     if (rail.equals(Rail.BOTTOM_LEFT)) {
-      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.05f, 0.95f)).sub(getMiddle()));
+      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(0.15f, 0.95f)).sub(getMiddle()).sub(offset));
     }
 
     if (rail.equals(Rail.TOP_RIGHT)) {
-      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.95f, 1.5f)).sub(getMiddle()));
+      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.85f, 1.5f)).sub(getMiddle()).sub(offset));
     }
 
     if (rail.equals(Rail.BOTTOM_RIGHT)) {
-      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.95f, 0.95f)).sub(getMiddle()));
+      setPosition(new Vector2f(Eggos.screenMiddle).mul(new Vector2f(1.85f, 0.95f)).sub(getMiddle()).sub(offset));
     }
   }
 
@@ -115,5 +131,13 @@ public class Egg {
     this.scaledSize = this.Scale.mul(this.Size);
     this.middle = new Vector2f(this.scaledSize.x() / 2, this.scaledSize.y() / 2);
     setPosition(this.position.mul(new Vector4f(difference.x, difference.y, 1.0f, 1.0f)));
+  }
+
+  public Rail getRail() {
+    return rail;
+  }
+
+  public void setRail(Rail rail) {
+    this.rail = rail;
   }
 }
