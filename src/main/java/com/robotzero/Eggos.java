@@ -1,14 +1,14 @@
 package com.robotzero;
 
+import com.robotzero.assets.Asset;
 import com.robotzero.assets.AssetService;
 import com.robotzero.entity.Egg;
-import com.robotzero.entity.Fred;
+import com.robotzero.entity.Entity;
 import com.robotzero.entity.Rail;
 import com.robotzero.render.opengl.Renderer2D;
 import com.robotzero.shader.Texture;
-import com.robotzero.utils.FredState;
+import com.robotzero.utils.WolfState;
 import com.robotzero.utils.Timer;
-import org.joml.AxisAngle4f;
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector2i;
@@ -32,6 +32,7 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -41,8 +42,10 @@ import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MAJOR;
 import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MINOR;
 import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_L;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_P;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_Q;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN;
 import static org.lwjgl.glfw.GLFW.GLFW_OPENGL_CORE_PROFILE;
 import static org.lwjgl.glfw.GLFW.GLFW_OPENGL_DEBUG_CONTEXT;
@@ -83,6 +86,7 @@ import static org.lwjgl.opengl.GL11.GL_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11.glBlendFunc;
 import static org.lwjgl.opengl.GL11.glEnable;
 import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL13.GL_MULTISAMPLE;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
@@ -91,13 +95,13 @@ public class Eggos {
   // The window handle
   public static long window;
   public static int WIDTH = 720;
-  public static int HEIGHT = 360;
+  public static int HEIGHT = 420;
   public static final int TARGET_UPS = 60;
   public static final int TARGET_FPS = 60;
   public static Vector2f eggddP = new Vector2f(0.0f, 0.0f);
   public static Vector2i screenMiddle = new Vector2i(WIDTH / 2, HEIGHT / 2);
   public static float eggSpeed = 1f;
-  private FredState fredState = FredState.RIGHT;
+  private WolfState wolfState = WolfState.TOP_LEFT;
   private Renderer2D renderer2D;
   private AssetService assetService;
   private ExecutorService executorService;
@@ -108,9 +112,9 @@ public class Eggos {
   private GLFWErrorCallback glwErrorCallback;
   private Vector2f difference = new Vector2f(1.0f, 1.0f);
   private float upsTracking = 0;
-  private float railWidth = WIDTH * 0.15f;
-  private float railHeight = HEIGHT * 0.15f;
-  private float propRailWidth = (float) Math.sqrt((railWidth * railWidth) + (railHeight * railHeight));
+  private final float railWidth = 263f;
+  private final float railHeight = 195f;
+  private Rail railAdded = null;
   private Map<Rail, Integer> eggTicks = new HashMap<>(Map.of(
       Rail.TOP_LEFT, 0,
       Rail.BOTTOM_LEFT, 0,
@@ -125,16 +129,29 @@ public class Eggos {
       Rail.TOP_RIGHT, 0
   ));
   private final Map<Rail, Vector2f> eggsDdp = new HashMap<>(Map.of(
-      Rail.TOP_LEFT, new Vector2f(1.5f, -0.35f),
-      Rail.BOTTOM_LEFT, new Vector2f(1.5f, -0.35f),
-      Rail.BOTTOM_RIGHT, new Vector2f(-1.5f, -0.35f),
-      Rail.TOP_RIGHT, new Vector2f(-1.5f, -0.35f)
+      Rail.TOP_LEFT, new Vector2f(1f, -0.60f),
+      Rail.BOTTOM_LEFT, new Vector2f(1f, -0.50f),
+      Rail.BOTTOM_RIGHT, new Vector2f(-1f, -0.50f),
+      Rail.TOP_RIGHT, new Vector2f(-1f, -0.50f)
   ));
 
   private int allEggTicks = 0;
   private final Matrix4f identity = new Matrix4f();
   private final Random random = new Random();
-  private Fred fred;
+  private final Function<Vector2f, Vector2f> wolfPositionCalculator = (scaledSize) -> {
+    if (wolfState.equals(WolfState.TOP_RIGHT) || wolfState.equals(WolfState.BOTTOM_RIGHT)) {
+      return new Vector2f(screenMiddle.x, screenMiddle.y * 0.15f);
+    } else if (wolfState.equals(WolfState.TOP_LEFT) || wolfState.equals(WolfState.BOTTOM_LEFT)) {
+      return new Vector2f(screenMiddle.x, screenMiddle.y * 0.15f).sub(scaledSize.x, 0.0f);
+    }
+    throw new RuntimeException("Invalid state");
+  };
+  private final float propRailWidthNotScaled = (float) Math.sqrt((railWidth * railWidth) + (railHeight * railHeight));
+  private float propRailWidth = 1.0f;
+  private Vector2f mainEggLengthDt = new Vector2f(1.0f, 1.0f);
+  private Entity wolf;
+  private Entity coopLeft;
+  private Entity coopRight;
 
   public void run() throws Exception {
     System.out.println("Hello LWJGL " + Version.getVersion() + "!");
@@ -204,9 +221,6 @@ public class Eggos {
           difference = new Vector2f((float) width / WIDTH, (float) height / HEIGHT);
           WIDTH = width;
           HEIGHT = height;
-          railWidth = WIDTH * 0.15f;
-          railHeight = HEIGHT * 0.15f;
-          propRailWidth = (float) Math.sqrt((railWidth * railWidth) + (railHeight * railHeight));
           screenMiddle = new Vector2i(WIDTH / 2, HEIGHT / 2);
           screenChangedEvent();
           glViewport(0, 0, WIDTH, HEIGHT);
@@ -222,9 +236,6 @@ public class Eggos {
           difference = new Vector2f((float) width / WIDTH, (float) height / HEIGHT);
           WIDTH = width;
           HEIGHT = height;
-          railWidth = WIDTH * 0.15f;
-          railHeight = HEIGHT * 0.15f;
-          propRailWidth = (float) Math.sqrt((railWidth * railWidth) + (railHeight * railHeight));
           screenMiddle = new Vector2i(WIDTH / 2, HEIGHT / 2);
           screenChangedEvent();
           glViewport(0, 0, WIDTH, HEIGHT);
@@ -268,7 +279,15 @@ public class Eggos {
     assetService = new AssetService(executorService);
     assetService.LoadAssets("assets");
     assetService.loadEggs();
-    fred = new Fred();
+    wolf = new Entity(2.0f, assetService.getFred(wolfState), wolfPositionCalculator);
+    coopRight = new Entity(1.2f, assetService.getCoop("coop_right.png"), (scaledSize) -> {
+      return new Vector2f(Eggos.WIDTH - scaledSize.x, Eggos.HEIGHT - scaledSize.y);
+    });
+    coopLeft = new Entity(1.2f, assetService.getCoop("coop_left.png"), (scaledSize) -> {
+      return new Vector2f(0.0f, Eggos.HEIGHT - this.coopRight.getScaledSize().y);
+    });
+    propRailWidth = propRailWidthNotScaled * (coopRight.getScaledSize().x / coopRight.getSize().x);
+    mainEggLengthDt = new Vector2f(1.0f * propRailWidth * 0.22f, 1.0f * propRailWidth * 0.22f);
     lastFps = timer.getTime();
   }
 
@@ -289,6 +308,7 @@ public class Eggos {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glfwWindowHint(GLFW_SAMPLES, 4);
+    glEnable(GL_MULTISAMPLE);
 
     timer.init();
     renderer2D.init();
@@ -302,14 +322,14 @@ public class Eggos {
       delta = timer.getDelta();
       accumulator += delta;
 
-      fredState = input();
+      wolfState = input();
       upsTracking = upsTracking + 1f / TARGET_FPS;
 
-      if (upsTracking > eggSpeed) {
-        beginSim();
-        update(1f / TARGET_FPS);
-        endSim();
-      }
+      boolean shouldEggUpdate = upsTracking > eggSpeed;
+      beginSim(shouldEggUpdate);
+      update(1f / TARGET_FPS, shouldEggUpdate);
+      endSim(shouldEggUpdate);
+
 
       timer.updateUPS();
       accumulator -= interval;
@@ -319,39 +339,61 @@ public class Eggos {
       }
 
       renderer2D.clear();
-      Optional<Texture> currentTexture = assetService.bind("fred_01.png");
-      currentTexture.ifPresent(texture -> {
-        if (fred.getScaledSize() == null) {
-          fred.setAsset(assetService.getFred());
-        }
-        renderer2D.begin();
-        renderer2D.setUniform(new Matrix4f().translate(fred.getPosition().x, fred.getPosition().y, 0.0f));
-        if (fredState == FredState.RIGHT) {
-          renderer2D.drawTextureRegion(0.0f, 0.0f, fred.getScaledSize().x, fred.getScaledSize().y, 0, 0, 1, 1, Fred.defaultColor);
-        }
-
-        if (fredState == FredState.LEFT) {
-          renderer2D.drawTextureRegion(fred.getScaledSize().x, 0, 0, fred.getScaledSize().y, 0, 0, 1, 1, Fred.defaultColor);
-
-        }
-        renderer2D.end();
-        assetService.unbind(texture);
+      Optional.ofNullable(assetService.getFred(wolfState)).ifPresent(asset -> {
+        Optional<Texture> currentTexture = assetService.bind(asset.getFileName());
+        currentTexture.ifPresent(texture -> {
+          if (wolf.getScaledSize() == null) {
+            wolf.setAsset(asset, wolfPositionCalculator);
+          }
+          renderer2D.begin();
+          renderer2D.setUniform(new Matrix4f().translate(wolf.getPosition().x, wolf.getPosition().y, 0.0f));
+          renderer2D.drawTextureRegion(0.0f, 0.0f, wolf.getScaledSize().x, wolf.getScaledSize().y, 0, 0, 1, 1, Entity.defaultColor);
+          renderer2D.end();
+          assetService.unbind(texture);
+        });
       });
 
-      Optional<Texture> testTexture = assetService.bind("test_01.png");
-      testTexture.ifPresent(texture -> {
+      Optional<Texture> coopRight = assetService.bind("coop_right.png");
+      coopRight.ifPresent(coopRightTexture -> {
+        if (this.coopRight.getScaledSize() == null) {
+          this.coopRight.setAsset(assetService.getCoop("coop_right.png"), (scaledSize) -> {
+            return new Vector2f(Eggos.WIDTH - scaledSize.x, Eggos.HEIGHT - scaledSize.y);
+          });
+        }
         renderer2D.begin();
-        assetService.getEggsShowing().forEach((key, value) -> {
-          for (Egg egg : value) {
-            renderer2D.setUniform(new Matrix4f().translate(egg.getPosition().x, egg.getPosition().y, 0.0f).translate(egg.getMiddle().x, egg.getMiddle().y, 0f)
-                .rotate(new AxisAngle4f((float) Math.toRadians(egg.getRotation()), 0f, 0f, -1).normalize())
-                .translate(-egg.getMiddle().x, -egg.getMiddle().y, 0f));
-            renderer2D.drawTextureRegion(0, 0, egg.getScaledSize().x, egg.getScaledSize().y, 0, 0, 1, 1, Egg.defaultColor);
-            renderer2D.flush();
-          }
-        });
+        renderer2D.setUniform(new Matrix4f().translate(this.coopRight.getPosition().x, this.coopRight.getPosition().y, 0.0f));
+        renderer2D.drawTextureRegion(0.0f, 0.0f, this.coopRight.getScaledSize().x, this.coopRight.getScaledSize().y, 0, 0, 1, 1, Entity.defaultColor);
         renderer2D.end();
-        assetService.unbind(texture);
+        assetService.unbind(coopRightTexture);
+      });
+
+      Optional<Texture> coopLeft = assetService.bind("coop_left.png");
+      coopLeft.ifPresent(coopLeftTexture -> {
+        Optional.ofNullable(this.coopRight.getScaledSize()).ifPresent(size -> {
+          if (this.coopLeft.getScaledSize() == null) {
+            this.coopLeft.setAsset(assetService.getCoop("coop_left.png"), (scaledSize) -> {
+              return new Vector2f(0.0f, Eggos.HEIGHT - this.coopRight.getScaledSize().y);
+            });
+          }
+          renderer2D.begin();
+          renderer2D.setUniform(new Matrix4f().translate(0.0f, this.coopLeft.getPosition().y, 0.0f));
+          renderer2D.drawTextureRegion(0.0f, 0.0f, this.coopLeft.getScaledSize().x, this.coopLeft.getScaledSize().y, 0, 0, 1, 1, Entity.defaultColor);
+          renderer2D.end();
+          assetService.unbind(coopLeftTexture);
+        });
+      });
+
+      assetService.getEggsShowing().forEach((key, value) -> {
+        for (Egg egg : value) {
+          Asset asset = egg.getAsset();
+          assetService.bind(asset.getFileName());
+          renderer2D.begin();
+          renderer2D.setUniform(new Matrix4f().translate(egg.getPosition().x, egg.getPosition().y, 0.0f));
+          renderer2D.drawTextureRegion(0, 0, egg.getScaledSize().x, egg.getScaledSize().y, 0, 0, 1, 1, Egg.defaultColor);
+          renderer2D.flush();
+          renderer2D.end();
+          assetService.unbind(asset.getTexture());
+        }
       });
 
       renderer2D.setUniform(identity);
@@ -394,34 +436,44 @@ public class Eggos {
     }
   }
 
-  private FredState input() {
+  private WolfState input() {
+    if (keyDown[GLFW_KEY_Q]) {
+      return WolfState.TOP_LEFT;
+    }
+
+    if (keyDown[GLFW_KEY_P]) {
+      return WolfState.TOP_RIGHT;
+    }
+
     if (keyDown[GLFW_KEY_A]) {
-      return FredState.LEFT;
+      return WolfState.BOTTOM_LEFT;
     }
 
-    if (keyDown[GLFW_KEY_D]) {
-      return FredState.RIGHT;
+    if (keyDown[GLFW_KEY_L]) {
+      return WolfState.BOTTOM_RIGHT;
     }
 
-    return fredState;
+    return wolfState;
   }
 
-  private void endSim() {
-      List<Map.Entry<Rail, Integer>> endTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() == 5)
+  private void endSim(boolean shouldEggUpdate) {
+    if (!shouldEggUpdate) return;
+      List<Map.Entry<Rail, Integer>> endTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() == 6)
           .collect(Collectors.toList());
 
-      List<Egg> eggsToRemove = assetService.getEggsShowing().entrySet().stream().flatMap(entry -> entry.getValue().stream()).filter(egg -> egg.getTick() == 5)
+      List<Egg> eggsToRemove = assetService.getEggsShowing().entrySet().stream().flatMap(entry -> entry.getValue().stream()).filter(egg -> egg.getTick() == 6)
           .collect(Collectors.toList());
 
       eggsToRemove.forEach(egg -> {
         Optional.ofNullable(assetService.getEggsShowing().get(egg.getRail()).poll()).ifPresent(eggToRemove -> {
           Rail rail = eggToRemove.getRail();
-          eggToRemove.setShowing(false);
-          eggToRemove.setRotation(0);
           eggToRemove.setRail(null);
           assetService.getEggs().get(rail).offer(eggToRemove);
           eggsOnScreen.put(rail, eggsOnScreen.get(rail) - 1);
           Rail randomRail = Rail.getRail(random.nextInt(4));
+          while (randomRail.equals(railAdded)) {
+            randomRail = Rail.getRail(random.nextInt(4));
+          }
           eggsOnScreen.put(randomRail, eggsOnScreen.get(randomRail) + 1);
           eggsInTheBasket = eggsInTheBasket + 1;
         });
@@ -433,14 +485,17 @@ public class Eggos {
     upsTracking = 0;
     difference.set(1.0f, 1.0f);
     eggddP.set(0.0f, 0.0f);
+    railAdded = null;
   }
 
-  private void beginSim() {
+  private void beginSim(boolean shouldEggUpdate) {
+    if (!shouldEggUpdate) return;
       final int allEggsShowing = assetService.getEggsShowing().values().stream().mapToInt(ConcurrentLinkedQueue::size).sum();
 
-      if (allEggTicks > 15 && allEggTicks % 6 == 0 && allEggTicks < 32) {
+      if (allEggTicks > 15 && allEggTicks % 9 == 0 && allEggTicks < 64) {
         Rail railToAdd = Rail.getRail(random.nextInt(4));
         eggsOnScreen.put(railToAdd, eggsOnScreen.get(railToAdd) + 1);
+        railAdded = railToAdd;
       }
 
       List<Map.Entry<Rail, Integer>> endTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() == 5)
@@ -458,8 +513,7 @@ public class Eggos {
           if (value > assetService.getEggsShowing().get(railToAdd).size()) {
             Egg eggToAdd = assetService.getEggs().get(railToAdd).poll();
             Optional.ofNullable(eggToAdd).ifPresent(egg -> {
-              egg.setInitialPosition(railToAdd, new Vector2f(1.0f * propRailWidth * 0.25f, 1.0f * propRailWidth * 0.25f).mul(eggsDdp.get(railToAdd)));
-              egg.setRotation(random.nextInt(360));
+              egg.setInitialPosition(railToAdd, new Vector2f(mainEggLengthDt).mul(eggsDdp.get(railToAdd)), new Vector2f(coopLeft.getScaledSize().x / coopLeft.getSize().x, coopLeft.getScaledSize().y / coopLeft.getSize().y), new Vector2f(coopRight.getScaledSize().x / coopRight.getSize().x, coopRight.getScaledSize().y / coopRight.getSize().y));
               egg.setTick(0);
               egg.setRail(railToAdd);
               assetService.getEggsShowing().get(railToAdd).offer(egg);
@@ -487,13 +541,17 @@ public class Eggos {
     });
   }
 
-  private void update(float fps) {
+  private void update(float fps, boolean shouldEggUpdate) {
+    Optional.ofNullable(wolf.getScaledSize()).ifPresent(scaledSize -> {
+      wolf.setPosition(wolfPositionCalculator.apply(scaledSize));
+    });
+    if (!shouldEggUpdate) return;
       assetService.getEggsShowing().entrySet().forEach(entry -> {
         for (Egg egg : entry.getValue()) {
-          final var ddp = new Vector2f(eggddP).add(new Vector2f(1.0f * propRailWidth * 0.25f, 1.0f * propRailWidth * 0.25f)).mul(eggsDdp.get(entry.getKey()));
+          egg.initNextTexture();
+          final var ddp = new Vector2f(eggddP).add(new Vector2f(mainEggLengthDt)).mul(eggsDdp.get(entry.getKey()));
           egg.setPosition(new Vector2f(egg.getPosition().x * difference.x, egg.getPosition().y * difference.y).add(ddp.x, ddp.y));
           egg.updateTick();
-          egg.setRotation(45);
         }
       });
       allEggTicks = allEggTicks + 1;
@@ -506,7 +564,13 @@ public class Eggos {
     this.assetService.getEggs().entrySet().stream().flatMap(entrySet -> {
       return entrySet.getValue().stream();
     }).forEach(egg -> egg.screenChangedEvent(difference));
-    this.fred.screenChangedEvent(difference);
+    this.wolf.screenChangedEvent(difference, null);
+    this.coopRight.screenChangedEvent(difference, (scaledSize) -> {
+      return new Vector2f(Eggos.WIDTH - scaledSize.x, Eggos.HEIGHT - scaledSize.y);
+    });
+    this.coopLeft.screenChangedEvent(difference, null);
+    propRailWidth = propRailWidthNotScaled * (coopRight.getScaledSize().x / coopRight.getSize().x);
+    mainEggLengthDt =  new Vector2f(1.0f * propRailWidth * 0.22f, 1.0f * propRailWidth * 0.22f);
   }
 
   public static void main(String[] args) {

@@ -52,7 +52,7 @@ public class Renderer2D {
      * Clears the drawing area.
      */
     public void clearColor() {
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearColor(0.54f, 0.59f, 0.57f, 1.0f);
     }
 
     public void clear() {
