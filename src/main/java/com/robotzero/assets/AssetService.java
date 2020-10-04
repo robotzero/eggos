@@ -2,11 +2,12 @@ package com.robotzero.assets;
 
 import com.robotzero.Eggos;
 import com.robotzero.entity.Egg;
+import com.robotzero.entity.Entity;
 import com.robotzero.entity.Rail;
 import com.robotzero.render.opengl.Renderer2D;
 import com.robotzero.render.opengl.text.Font;
 import com.robotzero.shader.Texture;
-import com.robotzero.utils.WolfState;
+import com.robotzero.entity.WolfState;
 import org.lwjgl.opengl.GL;
 
 import java.awt.*;
@@ -18,6 +19,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -44,6 +47,7 @@ public class AssetService {
   private final ConcurrentHashMap<String, Asset> gameAssets = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<Rail, ConcurrentLinkedQueue<Egg>> eggs = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<Rail, ConcurrentLinkedQueue<Egg>> eggsShowing = new ConcurrentHashMap<>();
+  private final List<Entity> crashEggs = new ArrayList<>();
   private final Map<WolfState, String> movementMapping = Map.of(
       WolfState.TOP_LEFT, "wolf_left_top.png",
       WolfState.TOP_RIGHT, "wolf_right_top.png",
@@ -158,6 +162,10 @@ public class AssetService {
     }, executorService).join();
   }
 
+  public void addCrashEgg(boolean half) {
+//    Entity crashEgg = new Entity();
+  }
+
   public void cleanUp() {
     gameAssets.forEach((key, value) -> {
       Optional.ofNullable(value.getTexture()).ifPresent(texture -> {
@@ -214,6 +222,14 @@ public class AssetService {
 
   public Asset getCoop(String coop) {
     return gameAssets.get(coop);
+  }
+
+  public Asset getChicken(String chicken) {
+    return gameAssets.get(chicken);
+  }
+
+  public List<Entity> getCrashEggs() {
+    return crashEggs;
   }
 }
 

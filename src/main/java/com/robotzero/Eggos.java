@@ -4,10 +4,11 @@ import com.robotzero.assets.Asset;
 import com.robotzero.assets.AssetService;
 import com.robotzero.entity.Egg;
 import com.robotzero.entity.Entity;
+import com.robotzero.entity.GameState;
 import com.robotzero.entity.Rail;
 import com.robotzero.render.opengl.Renderer2D;
 import com.robotzero.shader.Texture;
-import com.robotzero.utils.WolfState;
+import com.robotzero.entity.WolfState;
 import com.robotzero.utils.Timer;
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
@@ -33,6 +34,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -101,6 +103,7 @@ public class Eggos {
   public static Vector2f eggddP = new Vector2f(0.0f, 0.0f);
   public static Vector2i screenMiddle = new Vector2i(WIDTH / 2, HEIGHT / 2);
   public static float eggSpeed = 1f;
+  private final float chickenSpeed = 1f;
   private WolfState wolfState = WolfState.TOP_LEFT;
   private Renderer2D renderer2D;
   private AssetService assetService;
@@ -146,12 +149,20 @@ public class Eggos {
     }
     throw new RuntimeException("Invalid state");
   };
+  private final Supplier<Function<Entity, Vector2f>> initialPosition = () -> {
+    return (coop) -> {
+      return new Vector2f(coop.getScaledSize().x / coop.getSize().x, coop.getScaledSize().y / coop.getSize().y);
+    };
+  };
   private final float propRailWidthNotScaled = (float) Math.sqrt((railWidth * railWidth) + (railHeight * railHeight));
   private float propRailWidth = 1.0f;
+  private GameState currentState;
   private Vector2f mainEggLengthDt = new Vector2f(1.0f, 1.0f);
   private Entity wolf;
   private Entity coopLeft;
   private Entity coopRight;
+  private Entity chicken;
+  private Entity crashChickenRight;
 
   public void run() throws Exception {
     System.out.println("Hello LWJGL " + Version.getVersion() + "!");
@@ -279,16 +290,26 @@ public class Eggos {
     assetService = new AssetService(executorService);
     assetService.LoadAssets("assets");
     assetService.loadEggs();
-    wolf = new Entity(2.0f, assetService.getFred(wolfState), wolfPositionCalculator);
-    coopRight = new Entity(1.2f, assetService.getCoop("coop_right.png"), (scaledSize) -> {
+    wolf = new Entity(2.0f, wolfPositionCalculator, assetService.getFred(wolfState));
+    coopRight = new Entity(1.2f, (scaledSize) -> {
       return new Vector2f(Eggos.WIDTH - scaledSize.x, Eggos.HEIGHT - scaledSize.y);
-    });
-    coopLeft = new Entity(1.2f, assetService.getCoop("coop_left.png"), (scaledSize) -> {
+    }, assetService.getCoop("coop_right.png"));
+    coopLeft = new Entity(1.2f, (scaledSize) -> {
       return new Vector2f(0.0f, Eggos.HEIGHT - this.coopRight.getScaledSize().y);
-    });
+    }, assetService.getCoop("coop_left.png"));
+    chicken = new Entity(10f, (scaledSize) -> {
+      return new Vector2f(0.0f, 0.0f);
+    }, assetService.getChicken("crash_chicken.png"));
+    crashChickenRight = new Entity(8f, (scaledSize) -> {
+      return new Vector2f(Eggos.WIDTH * 0.78f, Eggos.HEIGHT * 0.12f);
+    }, assetService.getChicken("chicken_right_crash_1.png"),
+        assetService.getChicken("chicken_right_crash_2.png"),
+        assetService.getChicken("chicken_right_crash_3.png"),
+        assetService.getChicken("chicken_right_crash_4.png"));
     propRailWidth = propRailWidthNotScaled * (coopRight.getScaledSize().x / coopRight.getSize().x);
     mainEggLengthDt = new Vector2f(1.0f * propRailWidth * 0.22f, 1.0f * propRailWidth * 0.22f);
     lastFps = timer.getTime();
+    currentState = GameState.RUNNING;
   }
 
   private void loop() throws Exception {
@@ -326,9 +347,9 @@ public class Eggos {
       upsTracking = upsTracking + 1f / TARGET_FPS;
 
       boolean shouldEggUpdate = upsTracking > eggSpeed;
-      beginSim(shouldEggUpdate);
-      update(1f / TARGET_FPS, shouldEggUpdate);
-      endSim(shouldEggUpdate);
+      beginSim(shouldEggUpdate, currentState);
+      update(1f / TARGET_FPS, shouldEggUpdate, currentState);
+      endSim(shouldEggUpdate, currentState);
 
 
       timer.updateUPS();
@@ -396,6 +417,17 @@ public class Eggos {
         }
       });
 
+      Optional<Texture> crashChicken = assetService.bind(crashChickenRight.getAsset().getFileName());
+      crashChicken.ifPresent(texture -> {
+        renderer2D.begin();
+        renderer2D.setUniform(new Matrix4f().translate(crashChickenRight.getPosition().x, crashChickenRight.getPosition().y, 0.0f));
+//        renderer2D.setUniform(identity);
+        renderer2D.drawTextureRegion(0.0f, 0.0f, this.crashChickenRight.getScaledSize().x, this.crashChickenRight.getScaledSize().y, 0, 0, 1, 1, Entity.defaultColor);
+        renderer2D.flush();
+        renderer2D.end();
+        assetService.unbind(texture);
+      });
+
       renderer2D.setUniform(identity);
       assetService.getDebugFont().ifPresent(font -> {
         font.drawText(renderer2D, "FPS: " + timer.getFPS() + " | UPS: " + timer.getUPS(), 5, HEIGHT - 20);
@@ -456,7 +488,7 @@ public class Eggos {
     return wolfState;
   }
 
-  private void endSim(boolean shouldEggUpdate) {
+  private void endSim(boolean shouldEggUpdate, GameState currentState) {
     if (!shouldEggUpdate) return;
       List<Map.Entry<Rail, Integer>> endTicks = eggTicks.entrySet().stream().filter(entry -> entry.getValue() == 6)
           .collect(Collectors.toList());
@@ -464,8 +496,12 @@ public class Eggos {
       List<Egg> eggsToRemove = assetService.getEggsShowing().entrySet().stream().flatMap(entry -> entry.getValue().stream()).filter(egg -> egg.getTick() == 6)
           .collect(Collectors.toList());
 
-      eggsToRemove.forEach(egg -> {
-        Optional.ofNullable(assetService.getEggsShowing().get(egg.getRail()).poll()).ifPresent(eggToRemove -> {
+      if (eggsToRemove.size() > 1) {
+        throw new RuntimeException("Invalid state, to much eggs to remove");
+      }
+
+      this.currentState = Optional.of(eggsToRemove).filter(eggs -> eggs.size() == 1).map(eggs -> eggs.get(0)).map(egg -> {
+        return Optional.ofNullable(assetService.getEggsShowing().get(egg.getRail()).poll()).map(eggToRemove -> {
           Rail rail = eggToRemove.getRail();
           eggToRemove.setRail(null);
           assetService.getEggs().get(rail).offer(eggToRemove);
@@ -476,11 +512,13 @@ public class Eggos {
           }
           eggsOnScreen.put(randomRail, eggsOnScreen.get(randomRail) + 1);
           eggsInTheBasket = eggsInTheBasket + 1;
-        });
+          return !rail.name().equals(wolfState.name()) ? GameState.EGG_CRASH : currentState;
+        }).orElse(currentState);
+      }).orElse(currentState);
+
+      endTicks.forEach(rail -> {
+        eggTicks.put(rail.getKey(), 0);
       });
-        endTicks.forEach(rail -> {
-          eggTicks.put(rail.getKey(), 0);
-        });
 
     upsTracking = 0;
     difference.set(1.0f, 1.0f);
@@ -488,11 +526,22 @@ public class Eggos {
     railAdded = null;
   }
 
-  private void beginSim(boolean shouldEggUpdate) {
-    if (!shouldEggUpdate) return;
+  private void beginSim(boolean shouldEggUpdate, GameState currentState) {
+    if (currentState.equals(GameState.EGG_CRASH) && crashChickenRight.getTick() == 0) {
+      System.out.println("CRASHING");
+      assetService.getEggsShowing().entrySet().forEach(a -> {
+        Optional.ofNullable(a.getValue().poll()).ifPresent(egg -> {
+          assetService.getEggs().get(a.getKey()).offer(egg);
+        });
+      });
+      eggsOnScreen.entrySet().forEach(a -> {
+        a.setValue(0);
+      });
+    }
+    if (!shouldEggUpdate || currentState.equals(GameState.EGG_CRASH)) return;
       final int allEggsShowing = assetService.getEggsShowing().values().stream().mapToInt(ConcurrentLinkedQueue::size).sum();
 
-      if (allEggTicks > 15 && allEggTicks % 9 == 0 && allEggTicks < 64) {
+      if (allEggTicks > 18 && allEggTicks % 13 == 0 && allEggTicks < 64) {
         Rail railToAdd = Rail.getRail(random.nextInt(4));
         eggsOnScreen.put(railToAdd, eggsOnScreen.get(railToAdd) + 1);
         railAdded = railToAdd;
@@ -513,7 +562,7 @@ public class Eggos {
           if (value > assetService.getEggsShowing().get(railToAdd).size()) {
             Egg eggToAdd = assetService.getEggs().get(railToAdd).poll();
             Optional.ofNullable(eggToAdd).ifPresent(egg -> {
-              egg.setInitialPosition(railToAdd, new Vector2f(mainEggLengthDt).mul(eggsDdp.get(railToAdd)), new Vector2f(coopLeft.getScaledSize().x / coopLeft.getSize().x, coopLeft.getScaledSize().y / coopLeft.getSize().y), new Vector2f(coopRight.getScaledSize().x / coopRight.getSize().x, coopRight.getScaledSize().y / coopRight.getSize().y));
+              egg.setInitialPosition(railToAdd, initialPosition.get().apply(coopLeft), initialPosition.get().apply(coopRight));
               egg.setTick(0);
               egg.setRail(railToAdd);
               assetService.getEggsShowing().get(railToAdd).offer(egg);
@@ -541,20 +590,31 @@ public class Eggos {
     });
   }
 
-  private void update(float fps, boolean shouldEggUpdate) {
+  private void update(float fps, boolean shouldEggUpdate, GameState currentState) {
     Optional.ofNullable(wolf.getScaledSize()).ifPresent(scaledSize -> {
       wolf.setPosition(wolfPositionCalculator.apply(scaledSize));
     });
     if (!shouldEggUpdate) return;
+    if (!currentState.equals(GameState.EGG_CRASH)) {
       assetService.getEggsShowing().entrySet().forEach(entry -> {
         for (Egg egg : entry.getValue()) {
-          egg.initNextTexture();
-          final var ddp = new Vector2f(eggddP).add(new Vector2f(mainEggLengthDt)).mul(eggsDdp.get(entry.getKey()));
-          egg.setPosition(new Vector2f(egg.getPosition().x * difference.x, egg.getPosition().y * difference.y).add(ddp.x, ddp.y));
+          if (egg.getTick() != 0) {
+            egg.initNextTexture();
+            final var ddp = new Vector2f(eggddP).add(new Vector2f(mainEggLengthDt)).mul(eggsDdp.get(entry.getKey()));
+            egg.setPosition(new Vector2f(egg.getPosition().x * difference.x, egg.getPosition().y * difference.y).add(ddp.x, ddp.y));
+          }
           egg.updateTick();
         }
       });
       allEggTicks = allEggTicks + 1;
+    }
+
+      if (currentState.equals(GameState.EGG_CRASH)) {
+        if (crashChickenRight.getTick() != 0) {
+          crashChickenRight.initNextTexture();
+          crashChickenRight.updateTick();
+        }
+      }
   }
 
   private void screenChangedEvent() {
@@ -569,6 +629,7 @@ public class Eggos {
       return new Vector2f(Eggos.WIDTH - scaledSize.x, Eggos.HEIGHT - scaledSize.y);
     });
     this.coopLeft.screenChangedEvent(difference, null);
+    this.crashChickenRight.screenChangedEvent(difference, null);
     propRailWidth = propRailWidthNotScaled * (coopRight.getScaledSize().x / coopRight.getSize().x);
     mainEggLengthDt =  new Vector2f(1.0f * propRailWidth * 0.22f, 1.0f * propRailWidth * 0.22f);
   }

@@ -35,7 +35,7 @@ public class Egg {
     }
     Optional.ofNullable(assets.peek()).ifPresent(asset1 -> {
       initAsset(asset1);
-      this.setInitialPosition(rail, new Vector2f(0.0f, 0.0f), new Vector2f(1.0f, 1.0f), new Vector2f(1.0f, 1.0f));
+      this.setInitialPosition(rail, new Vector2f(1.0f, 1.0f), new Vector2f(1.0f, 1.0f));
     });
   }
 
@@ -96,22 +96,22 @@ public class Egg {
     this.tick = tick;
   }
 
-  public void setInitialPosition(Rail rail, Vector2f offset, Vector2f coopLeftRatio, Vector2f coopRightRatio) {
+  public void setInitialPosition(Rail rail, Vector2f coopLeftRatio, Vector2f coopRightRatio) {
     this.rail = rail;
     if (rail.equals(Rail.TOP_LEFT)) {
-      setPosition(new Vector2f(initialPositionLeftNotScaled * coopLeftRatio.x, Eggos.HEIGHT * 0.68f).sub(getMiddle()).sub(offset));
+      setPosition(new Vector2f(initialPositionLeftNotScaled * coopLeftRatio.x, Eggos.HEIGHT * 0.68f).sub(getMiddle()));
     }
 
     if (rail.equals(Rail.BOTTOM_LEFT)) {
-      setPosition(new Vector2f(initialPositionLeftNotScaled * coopLeftRatio.x, Eggos.HEIGHT * 0.42f).sub(getMiddle()).sub(offset));
+      setPosition(new Vector2f(initialPositionLeftNotScaled * coopLeftRatio.x, Eggos.HEIGHT * 0.42f).sub(getMiddle()));
     }
 
     if (rail.equals(Rail.TOP_RIGHT)) {
-      setPosition(new Vector2f(Eggos.WIDTH - initialPositionLeftNotScaled * coopRightRatio.x, Eggos.HEIGHT * 0.65f).sub(getMiddle()).sub(offset));
+      setPosition(new Vector2f(Eggos.WIDTH - initialPositionLeftNotScaled * coopRightRatio.x, Eggos.HEIGHT * 0.65f).sub(getMiddle()));
     }
 
     if (rail.equals(Rail.BOTTOM_RIGHT)) {
-      setPosition(new Vector2f(Eggos.WIDTH - initialPositionLeftNotScaled * coopRightRatio.x, Eggos.HEIGHT * 0.40f).sub(getMiddle()).sub(offset));
+      setPosition(new Vector2f(Eggos.WIDTH - initialPositionLeftNotScaled * coopRightRatio.x, Eggos.HEIGHT * 0.40f).sub(getMiddle()));
     }
   }
 
