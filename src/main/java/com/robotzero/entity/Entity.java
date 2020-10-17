@@ -19,7 +19,6 @@ public class Entity {
   private Vector2f Scale;
   private Vector2f scaledSize;
   private Vector2f middle;
-  private int tick = 0;
   public static final Color defaultColor = new Color(1.0f, 1.0f, 1.0f);
   private final ConcurrentLinkedQueue<Asset> assets = new ConcurrentLinkedQueue<>();
 
@@ -43,12 +42,6 @@ public class Entity {
     Optional.ofNullable(assets.peek()).ifPresent(asset1 -> {
       initAsset(asset1);
     });
-  }
-
-  public void initNextTexture() {
-    Asset asset = Optional.ofNullable(assets.poll()).orElseThrow(() -> new RuntimeException("No asset"));
-    initAsset(asset);
-    assets.offer(asset);
   }
 
   private void initAsset(Asset asset) {
@@ -105,17 +98,5 @@ public class Entity {
 
   public Asset getAsset() {
     return assets.peek();
-  }
-
-  public int getTick() {
-    return tick;
-  }
-
-  public void updateTick() {
-    this.tick = this.tick + 1;
-  }
-
-  public void setTick(int tick) {
-    this.tick = tick;
   }
 }

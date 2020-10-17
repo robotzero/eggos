@@ -225,6 +225,7 @@ public class AssetService {
   }
 
   public Asset getChicken(String chicken) {
+    while (gameAssets.get(chicken) == null) {};
     return gameAssets.get(chicken);
   }
 
