@@ -65,7 +65,7 @@ public class AssetService {
       final var resourcesPath = Paths.get(resources.toURI());
       Stream<Path> files = Files.list(resourcesPath);
       sharedWindow = createOpenGLContextForWorkerThread();
-      CompletableFuture.runAsync(() -> {
+//      CompletableFuture.runAsync(() -> {
         glfwInit();
         glfwMakeContextCurrent(sharedWindow);
         GL.createCapabilities();
@@ -85,13 +85,13 @@ public class AssetService {
         }
         Asset debugFont = new Font(12, false);
         gameAssets.put("debugfont", debugFont);
-      }, executorService).whenComplete((void_, throwable) -> {
-        glfwSwapBuffers(sharedWindow);
-        Optional.ofNullable(throwable).ifPresent(t -> {
-          t.printStackTrace();
-          throw new RuntimeException("Failed to load assets");
-        });
-      });
+//      }, executorService).whenComplete((void_, throwable) -> {
+//        glfwSwapBuffers(sharedWindow);
+//        Optional.ofNullable(throwable).ifPresent(t -> {
+//          t.printStackTrace();
+//          throw new RuntimeException("Failed to load assets");
+//        });
+//      });
       glfwMakeContextCurrent(Eggos.window);
     } catch (IOException | NullPointerException | URISyntaxException e) {
       e.printStackTrace();
