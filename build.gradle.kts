@@ -20,6 +20,11 @@ application {
 	mainClass.set("com.robotzero.Eggos")
 }
 
+java {
+	sourceCompatibility = JavaVersion.VERSION_23
+	targetCompatibility = JavaVersion.VERSION_23
+}
+
 //java {
 //	toolchain {
 //		languageVersion.set(JavaLanguageVersion.of(23))
